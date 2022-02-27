@@ -1,0 +1,13 @@
+{
+  "name": "raspberry-instock-check",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "jsdom": "^19.0.0",
+    "node-fetch": "^3.2.0",
+    "node-telegram-bot-api": "^0.56.0"
+  }
+}
