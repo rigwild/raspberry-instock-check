@@ -10,6 +10,9 @@ const CHECK_INTERVAL = +process.env.CHECK_INTERVAL || 60_000
 const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN
 const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID
 
+// Do not send the same alert multiple times
+const sentAlerts = new Set()
+
 const bot = new TelegramBot(TELEGRAM_TOKEN)
 bot.sendMessage(
   TELEGRAM_CHAT_ID,
@@ -38,8 +41,14 @@ const parseHTML = document => {
 /** @param {string[]} data */
 const sendTelegramAlert = async data => {
   const message = `Raspberry in stock! 🔥\n${data.join('\n')}`
+  if (sentAlerts.has(message)) return
+
   console.log(message)
   await bot.sendMessage(TELEGRAM_CHAT_ID, message, { parse_mode: 'Markdown' })
+  sentAlerts.add(message)
+
+  // Stop silencing the alert after 30 minutes
+  setTimeout(() => sentAlerts.delete(message), 60_000 * 30)
 }
 
 const checkStock = async () => {
