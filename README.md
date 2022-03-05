@@ -2,6 +2,8 @@
 
 Get an alert on Telegram when there are Raspberry in stock ready to buy.
 
+Join the Telegram channel to get notifications: https://t.me/raspberry_stock_alert
+
 ![screenshot](./screenshot.png)
 
 ## Install
@@ -10,12 +12,20 @@ Get an alert on Telegram when there are Raspberry in stock ready to buy.
 pnpm i
 ```
 
+## Build
+
+```sh
+pnpm build
+```
+
 ## Run
+
+If omitted, `SEARCHED_RASPBERRY_MODELS` will watch all Raspberry models.
 
 ```sh
 TELEGRAM_TOKEN=<telegram_bot_token> \
 TELEGRAM_CHAT_ID=<telegram_chat_id_where_to_send_alerts> \
-RASPBERRY_MODELS=RPI4-MODBP-4GB,RPI4-MODBP-8GB \
+SEARCHED_RASPBERRY_MODELS=RPI4-MODBP-4GB,RPI4-MODBP-8GB \
 pnpm start
 ```
 
