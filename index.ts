@@ -123,7 +123,7 @@ const sendTelegramAlert = async (raspberryListChanges: ReturnType<typeof updateR
   await bot.sendMessage(TELEGRAM_CHAT_ID, message, { parse_mode: 'Markdown' })
 }
 
-let i = 0
+// let i = 0
 const checkStock = async () => {
   console.log('Checking stock...')
   const document = await getHTML()
@@ -131,21 +131,21 @@ const checkStock = async () => {
   raspberryList = filterRaspberryListBySearchedModels(raspberryList)
   // console.log(raspberryList)
 
-  if (i === 1 || i === 3) {
-    const key = [...rapsberryCache.keys()][50]
-    raspberryList.find(x => `${x.sku}-${x.vendor}` === key)!.available = true
-  }
-  if (i === 5) {
-    const key = [...rapsberryCache.keys()][0]
-    raspberryList.find(x => `${x.sku}-${x.vendor}` === key)!.available = false
-  }
-  if (i === 8) {
-    const key1 = [...rapsberryCache.keys()][0]
-    const key2 = [...rapsberryCache.keys()][50]
-    raspberryList.find(x => `${x.sku}-${x.vendor}` === key1)!.available = false
-    raspberryList.find(x => `${x.sku}-${x.vendor}` === key2)!.available = true
-  }
-  i++
+  // if (i === 1 || i === 3) {
+  //   const key = [...rapsberryCache.keys()][50]
+  //   raspberryList.find(x => `${x.sku}-${x.vendor}` === key)!.available = true
+  // }
+  // if (i === 5) {
+  //   const key = [...rapsberryCache.keys()][0]
+  //   raspberryList.find(x => `${x.sku}-${x.vendor}` === key)!.available = false
+  // }
+  // if (i === 8) {
+  //   const key1 = [...rapsberryCache.keys()][0]
+  //   const key2 = [...rapsberryCache.keys()][50]
+  //   raspberryList.find(x => `${x.sku}-${x.vendor}` === key1)!.available = false
+  //   raspberryList.find(x => `${x.sku}-${x.vendor}` === key2)!.available = true
+  // }
+  // i++
 
   const raspberryListChanges = updateRapsberryCache(raspberryList)
   // console.log(nowAvailableRaspberryList)
