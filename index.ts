@@ -95,7 +95,7 @@ const updateRapsberryCache = (raspberryList: Raspberry[]) => {
     // Alert if the raspberry is now available but was not before
     if (raspberry.available && !cachedRaspberry.available) nowAvailableRaspberryList.push(raspberry)
     // Alert if the raspberry is now unavailable but was before
-    if (!raspberry.available && cachedRaspberry.available) nowUnavailableRaspberryList.push(raspberry)
+    // if (!raspberry.available && cachedRaspberry.available) nowUnavailableRaspberryList.push(raspberry)
 
     rapsberryCache.set(key, raspberry)
   })
