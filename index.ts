@@ -78,11 +78,8 @@ const updateRapsberryCache = (raspberryList: Raspberry[]) => {
     const key = `${raspberry.sku}-${raspberry.vendor}`
     if (isFirstInit) {
       rapsberryCache.set(key, raspberry)
-
       // Do not notify on startup
       // if (raspberry.available) nowAvailableRaspberryList.push(raspberry)
-
-      isFirstInit = false
       return
     }
 
@@ -102,6 +99,8 @@ const updateRapsberryCache = (raspberryList: Raspberry[]) => {
 
     rapsberryCache.set(key, raspberry)
   })
+
+  if (isFirstInit) isFirstInit = false
 
   return raspberryListChanges
 }
