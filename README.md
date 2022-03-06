@@ -1,6 +1,6 @@
 # Raspberry instock check bot
 
-Get an alert on Telegram when there are Raspberry in stock ready to buy.
+Get an alert on Telegram when there are Raspberry in stock ready to buy. This bot uses the website https://rpilocator.com/ to check for stock updates.
 
 Join the Telegram channel to get notifications: https://t.me/raspberry_stock_alert
 
@@ -24,7 +24,9 @@ If omitted, `SEARCHED_RASPBERRY_MODELS` will watch all Raspberry models.
 
 ```sh
 TELEGRAM_TOKEN=<telegram_bot_token> \
+TELEGRAM_ADMIN_CHAT_ID=<telegram_chat_id_where_to_send_debug_info> \
 TELEGRAM_CHAT_ID=<telegram_chat_id_where_to_send_alerts> \
+USE_DIRECT_PRODUCT_LINK=1 \
 SEARCHED_RASPBERRY_MODELS=RPI4-MODBP-4GB,RPI4-MODBP-8GB \
 pnpm start
 ```

@@ -11,6 +11,8 @@ const CHECK_INTERVAL = process.env.CHECK_INTERVAL ? +process.env.CHECK_INTERVAL 
 
 const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN!
 const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID!
+const TELEGRAM_ADMIN_CHAT_ID = process.env.TELEGRAM_ADMIN_CHAT_ID!
+const USE_DIRECT_PRODUCT_LINK = process.env.USE_DIRECT_PRODUCT_LINK === '1'
 
 type Raspberry = {
   sku: string
@@ -26,7 +28,7 @@ const rapsberryCache = new Map<string, Raspberry>()
 
 const bot = new TelegramBot(TELEGRAM_TOKEN)
 bot.sendMessage(
-  TELEGRAM_CHAT_ID,
+  TELEGRAM_ADMIN_CHAT_ID,
   `Bot started! ⚡ Looking for models:${
     SEARCHED_RASPBERRY_MODELS?.[0] === '*' ? ' All' : '\n' + SEARCHED_RASPBERRY_MODELS.map(x => `\`${x}\``).join('\n')
   }\nhttps://github.com/rigwild/raspberry-instock-check`,
@@ -76,7 +78,10 @@ const updateRapsberryCache = (raspberryList: Raspberry[]) => {
     const key = `${raspberry.sku}-${raspberry.vendor}`
     if (isFirstInit) {
       rapsberryCache.set(key, raspberry)
-      if (raspberry.available) nowAvailableRaspberryList.push(raspberry)
+
+      // Do not notify on startup
+      // if (raspberry.available) nowAvailableRaspberryList.push(raspberry)
+
       isFirstInit = false
       return
     }
@@ -102,22 +107,24 @@ const updateRapsberryCache = (raspberryList: Raspberry[]) => {
 }
 
 const sendTelegramAlert = async (raspberryListChanges: ReturnType<typeof updateRapsberryCache>) => {
-  let message = '🛍️ Raspberry stock changes!\n\n'
+  let message = '🛍️ Raspberry stock changes!'
+
+  const getLink = (r: Raspberry) => {
+    const itemLink = USE_DIRECT_PRODUCT_LINK ? r.link : STOCK_URI
+    return `[${r.description} | ${r.vendor} | ${r.price}](${itemLink})`
+  }
 
   if (raspberryListChanges.nowAvailableRaspberryList.length > 0) {
-    message += `New Raspberry in stock! 🔥\n`
-    message += raspberryListChanges.nowAvailableRaspberryList
-      .map(x => `✅ [${x.description} | ${x.vendor} | ${x.price}](${x.link})`)
-      .join('\n')
-    message += `\n\n`
+    message += `\n\nNew Raspberry in stock! 🔥\n`
+    message += raspberryListChanges.nowAvailableRaspberryList.map(r => `✅ ${getLink(r)}`).join('\n')
   }
 
   if (raspberryListChanges.nowUnavailableRaspberryList.length > 0) {
-    message += `Raspberry now out of stock! 😫\n`
-    message += raspberryListChanges.nowUnavailableRaspberryList
-      .map(x => `❌ [${x.description} | ${x.vendor} | ${x.price}](${x.link})`)
-      .join('\n')
+    message += `\n\nRaspberry now out of stock! 😫\n`
+    message += raspberryListChanges.nowUnavailableRaspberryList.map(r => `❌ ${getLink(r)}`).join('\n')
   }
+
+  message += `\n\nStock data from [rpilocator.com](${STOCK_URI})`
 
   console.log(message)
   await bot.sendMessage(TELEGRAM_CHAT_ID, message, { parse_mode: 'Markdown' })
