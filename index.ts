@@ -24,7 +24,13 @@ type Raspberry = {
   available: boolean
 }
 
-const rapsberryCache = new Map<string, Raspberry>()
+const rapsberryListCache = new Map<string, Raspberry>()
+
+// Used to get the vendor id from the vendor name for the product link with query string filter
+// key=vendor.name, value=vendor.id
+const vendorsCache = new Map<string, string>()
+
+let debugRound = 0
 
 const bot = new TelegramBot(TELEGRAM_TOKEN)
 bot.sendMessage(
@@ -41,8 +47,8 @@ const getHTML = async () => {
   return dom.window.document
 }
 
-const parseHTML = (document: Document): Raspberry[] => {
-  return [...document.querySelectorAll('tr')]
+const parseHTMLGetRaspberryList = (document: Document): Raspberry[] => {
+  const raspberryList: Raspberry[] = [...document.querySelectorAll('tr')]
     .slice(1)
     .map(x => [x.querySelector('th'), ...x.querySelectorAll('td')])
     .map(trRows => {
@@ -57,16 +63,31 @@ const parseHTML = (document: Document): Raspberry[] => {
       }
       return raspberry
     })
-}
-
-const filterRaspberryListBySearchedModels = (raspberryList: Raspberry[]): Raspberry[] => {
   return SEARCHED_RASPBERRY_MODELS?.[0] === '*'
     ? raspberryList
     : raspberryList.filter(x => SEARCHED_RASPBERRY_MODELS.includes(x.sku))
 }
 
-const updateRapsberryCache = (raspberryList: Raspberry[]) => {
-  let isFirstInit = rapsberryCache.size === 0
+const updateRapsberryCache = (document: Document) => {
+  const raspberryList = parseHTMLGetRaspberryList(document)
+
+  if (process.env.NODE_ENV === 'development') {
+    const key0 = [...rapsberryListCache.keys()][0]
+    const key50 = [...rapsberryListCache.keys()][50]
+    if (debugRound === 1 || debugRound === 3) {
+      raspberryList.find(x => `${x.sku}-${x.vendor}` === key50)!.available = true
+    }
+    if (debugRound === 5) {
+      raspberryList.find(x => `${x.sku}-${x.vendor}` === key0)!.available = false
+    }
+    if (debugRound === 8) {
+      raspberryList.find(x => `${x.sku}-${x.vendor}` === key0)!.available = false
+      raspberryList.find(x => `${x.sku}-${x.vendor}` === key50)!.available = true
+    }
+    debugRound++
+  }
+
+  let isFirstInit = rapsberryListCache.size === 0
   const nowAvailableRaspberryList: Raspberry[] = []
   const nowUnavailableRaspberryList: Raspberry[] = []
   const raspberryListChanges = {
@@ -77,17 +98,17 @@ const updateRapsberryCache = (raspberryList: Raspberry[]) => {
   raspberryList.forEach(raspberry => {
     const key = `${raspberry.sku}-${raspberry.vendor}`
     if (isFirstInit) {
-      rapsberryCache.set(key, raspberry)
+      rapsberryListCache.set(key, raspberry)
       // Do not notify on startup
       // if (raspberry.available) nowAvailableRaspberryList.push(raspberry)
       return
     }
 
-    const cachedRaspberry = rapsberryCache.get(key)
+    const cachedRaspberry = rapsberryListCache.get(key)
 
     // New Raspberry listing appeared on rpilocator.com
     if (!cachedRaspberry) {
-      rapsberryCache.set(key, raspberry)
+      rapsberryListCache.set(key, raspberry)
       if (raspberry.available) nowAvailableRaspberryList.push(raspberry)
       return
     }
@@ -97,7 +118,7 @@ const updateRapsberryCache = (raspberryList: Raspberry[]) => {
     // Alert if the raspberry is now unavailable but was before
     // if (!raspberry.available && cachedRaspberry.available) nowUnavailableRaspberryList.push(raspberry)
 
-    rapsberryCache.set(key, raspberry)
+    rapsberryListCache.set(key, raspberry)
   })
 
   if (isFirstInit) isFirstInit = false
@@ -105,11 +126,32 @@ const updateRapsberryCache = (raspberryList: Raspberry[]) => {
   return raspberryListChanges
 }
 
+const updateVendorsCache = (document: Document) => {
+  ;[...document.querySelectorAll('a[data-vendor]')]
+    .map(x => {
+      const [country, ...vendorName] = x.textContent!.trim().split(' ')
+      return {
+        id: x.getAttribute('data-vendor'),
+        name: `${vendorName.join(' ')} ${country}`.trim()
+      }
+    })
+    .forEach(({ id, name }) => vendorsCache.set(name, id))
+  vendorsCache.delete('All')
+}
+
 const sendTelegramAlert = async (raspberryListChanges: ReturnType<typeof updateRapsberryCache>) => {
   let message = '🛍️ Raspberry stock changes!'
-
+  console.log(vendorsCache)
   const getLink = (r: Raspberry) => {
-    const itemLink = USE_DIRECT_PRODUCT_LINK ? r.link : STOCK_URI
+    console.log('xd', r)
+    console.log('xd', r.vendor)
+    console.log('get', vendorsCache.get(r.vendor))
+    let itemLink: string
+    if (USE_DIRECT_PRODUCT_LINK) itemLink = r.link
+    else {
+      itemLink = STOCK_URI
+      if (vendorsCache.has(r.vendor)) itemLink += `?vendor=${vendorsCache.get(r.vendor)}`
+    }
     return `[${r.description} | ${r.vendor} | ${r.price}](${itemLink})`
   }
 
@@ -118,6 +160,7 @@ const sendTelegramAlert = async (raspberryListChanges: ReturnType<typeof updateR
     message += raspberryListChanges.nowAvailableRaspberryList.map(r => `✅ ${getLink(r)}`).join('\n')
   }
 
+  // Disabled
   if (raspberryListChanges.nowUnavailableRaspberryList.length > 0) {
     message += `\n\nRaspberry now out of stock! 😫\n`
     message += raspberryListChanges.nowUnavailableRaspberryList.map(r => `❌ ${getLink(r)}`).join('\n')
@@ -129,31 +172,12 @@ const sendTelegramAlert = async (raspberryListChanges: ReturnType<typeof updateR
   await bot.sendMessage(TELEGRAM_CHAT_ID, message, { parse_mode: 'Markdown' })
 }
 
-// let i = 0
 const checkStock = async () => {
   console.log('Checking stock...')
   const document = await getHTML()
-  let raspberryList = parseHTML(document)
-  raspberryList = filterRaspberryListBySearchedModels(raspberryList)
-  // console.log(raspberryList)
 
-  // if (i === 1 || i === 3) {
-  //   const key = [...rapsberryCache.keys()][50]
-  //   raspberryList.find(x => `${x.sku}-${x.vendor}` === key)!.available = true
-  // }
-  // if (i === 5) {
-  //   const key = [...rapsberryCache.keys()][0]
-  //   raspberryList.find(x => `${x.sku}-${x.vendor}` === key)!.available = false
-  // }
-  // if (i === 8) {
-  //   const key1 = [...rapsberryCache.keys()][0]
-  //   const key2 = [...rapsberryCache.keys()][50]
-  //   raspberryList.find(x => `${x.sku}-${x.vendor}` === key1)!.available = false
-  //   raspberryList.find(x => `${x.sku}-${x.vendor}` === key2)!.available = true
-  // }
-  // i++
-
-  const raspberryListChanges = updateRapsberryCache(raspberryList)
+  updateVendorsCache(document)
+  const raspberryListChanges = updateRapsberryCache(document)
   // console.log(nowAvailableRaspberryList)
 
   if (
