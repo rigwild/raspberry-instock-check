@@ -90,7 +90,8 @@ const updateRapsberryCache = (document: Document) => {
   let isFirstInit = rapsberryListCache.size === 0
   const nowAvailableRaspberryList: Raspberry[] = []
   const nowUnavailableRaspberryList: Raspberry[] = []
-  const raspberryListChanges = {
+  const raspberryListWithChanges = {
+    raspberryList,
     nowAvailableRaspberryList,
     nowUnavailableRaspberryList
   }
@@ -123,7 +124,7 @@ const updateRapsberryCache = (document: Document) => {
 
   if (isFirstInit) isFirstInit = false
 
-  return raspberryListChanges
+  return raspberryListWithChanges
 }
 
 const updateVendorsCache = (document: Document) => {
@@ -139,13 +140,10 @@ const updateVendorsCache = (document: Document) => {
   vendorsCache.delete('All')
 }
 
-const sendTelegramAlert = async (raspberryListChanges: ReturnType<typeof updateRapsberryCache>) => {
+const sendTelegramAlert = async (raspberryListWithChanges: ReturnType<typeof updateRapsberryCache>) => {
   let message = '🛍️ Raspberry stock changes!'
-  console.log(vendorsCache)
+
   const getLink = (r: Raspberry) => {
-    console.log('xd', r)
-    console.log('xd', r.vendor)
-    console.log('get', vendorsCache.get(r.vendor))
     let itemLink: string
     if (USE_DIRECT_PRODUCT_LINK) itemLink = r.link
     else {
@@ -155,16 +153,22 @@ const sendTelegramAlert = async (raspberryListChanges: ReturnType<typeof updateR
     return `[${r.description} | ${r.vendor} | ${r.price}](${itemLink})`
   }
 
-  if (raspberryListChanges.nowAvailableRaspberryList.length > 0) {
-    message += `\n\nNew Raspberry in stock! 🔥\n`
-    message += raspberryListChanges.nowAvailableRaspberryList.map(r => `✅ ${getLink(r)}`).join('\n')
+  if (raspberryListWithChanges.nowAvailableRaspberryList.length > 0) {
+    message += `\n\nNew Raspberry in stock! 🔥🔥\n`
+    message += raspberryListWithChanges.nowAvailableRaspberryList.map(r => `✅ ${getLink(r)}`).join('\n')
   }
 
   // Disabled
-  if (raspberryListChanges.nowUnavailableRaspberryList.length > 0) {
+  if (raspberryListWithChanges.nowUnavailableRaspberryList.length > 0) {
     message += `\n\nRaspberry now out of stock! 😫\n`
-    message += raspberryListChanges.nowUnavailableRaspberryList.map(r => `❌ ${getLink(r)}`).join('\n')
+    message += raspberryListWithChanges.nowUnavailableRaspberryList.map(r => `❌ ${getLink(r)}`).join('\n')
   }
+
+  message += `\n\nCurrently in stock:\n`
+  message += raspberryListWithChanges.raspberryList
+    .filter(r => r.available)
+    .map(r => getLink(r))
+    .join('\n')
 
   message += `\n\nStock data from [rpilocator.com](${STOCK_URI})`
 
