@@ -177,19 +177,26 @@ const sendTelegramAlert = async (raspberryListWithChanges: ReturnType<typeof upd
 }
 
 const checkStock = async () => {
-  console.log('Checking stock...')
-  const document = await getHTML()
+  try {
+    console.log('Checking stock...')
+    const document = await getHTML()
 
-  updateVendorsCache(document)
-  const raspberryListChanges = updateRapsberryCache(document)
-  // console.log(nowAvailableRaspberryList)
+    updateVendorsCache(document)
+    const raspberryListWithChanges = updateRapsberryCache(document)
+    // console.log(raspberryListWithChanges)
 
-  if (
-    raspberryListChanges.nowAvailableRaspberryList.length > 0 ||
-    raspberryListChanges.nowUnavailableRaspberryList.length > 0
-  )
-    await sendTelegramAlert(raspberryListChanges)
-  else console.log('Not in stock!')
+    if (
+      raspberryListWithChanges.nowAvailableRaspberryList.length > 0 ||
+      raspberryListWithChanges.nowUnavailableRaspberryList.length > 0
+    )
+      await sendTelegramAlert(raspberryListWithChanges)
+    else console.log('Not in stock!')
+  } catch (error) {
+    console.error(error)
+    await bot.sendMessage(TELEGRAM_ADMIN_CHAT_ID, `❌ Error!\n${error.message}\n${error.stack}`, {
+      parse_mode: 'Markdown'
+    })
+  }
 }
 
 checkStock()
