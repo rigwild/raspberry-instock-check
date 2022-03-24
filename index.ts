@@ -154,11 +154,15 @@ const sendTelegramAlert = async (raspberryListWithChanges: ReturnType<typeof upd
 
   const getLink = (r: Raspberry) => {
     let itemLink: string
+    let urlQueries: Array<[string, string]> = []
     if (USE_DIRECT_PRODUCT_LINK) itemLink = r.link
     else {
       itemLink = STOCK_URI
-      if (vendorsCache.has(r.vendor)) itemLink += `?vendor=${vendorsCache.get(r.vendor)}`
+      if (vendorsCache.has(r.vendor)) urlQueries.push(['vendor', vendorsCache.get(r.vendor)])
     }
+    urlQueries.push(['utm_source', 'telegram'])
+    urlQueries.push(['utm_medium', 'rapsberry_stock_alert'])
+    itemLink += '?' + urlQueries.map(([k, v]) => `${k}=${v}`).join('&')
     return `[${r.description} | ${r.vendor} | ${r.price}](${itemLink})`
   }
 
@@ -180,7 +184,7 @@ const sendTelegramAlert = async (raspberryListWithChanges: ReturnType<typeof upd
     .map(r => getLink(r))
     .join('\n')
 
-  message += `\n\nStock data from [rpilocator.com](${STOCK_URI})`
+  message += `\n\nStock data from [rpilocator.com](${STOCK_URI}?utm_source=telegram&utm_medium=rapsberry_stock_alert)`
 
   console.log(message)
   const sentMsg = await bot.sendMessage(TELEGRAM_CHAT_ID, message, { parse_mode: 'Markdown' })
