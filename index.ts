@@ -30,6 +30,9 @@ const rapsberryListCache = new Map<string, Raspberry>()
 // key=vendor.name, value=vendor.id
 const vendorsCache = new Map<string, string>()
 
+// Save the sent messages to udpate them when becomes unavailable
+const lastStockMessages = new Map<string, TelegramBot.Message>()
+
 let debugRound = 0
 
 const bot = new TelegramBot(TELEGRAM_TOKEN)
@@ -115,9 +118,13 @@ const updateRapsberryCache = (document: Document) => {
     }
 
     // Alert if the raspberry is now available but was not before
-    if (raspberry.available && !cachedRaspberry.available) nowAvailableRaspberryList.push(raspberry)
+    if (raspberry.available && !cachedRaspberry.available) {
+      nowAvailableRaspberryList.push(raspberry)
+    }
     // Alert if the raspberry is now unavailable but was before
-    // if (!raspberry.available && cachedRaspberry.available) nowUnavailableRaspberryList.push(raspberry)
+    if (!raspberry.available && cachedRaspberry.available) {
+      nowUnavailableRaspberryList.push(raspberry)
+    }
 
     rapsberryListCache.set(key, raspberry)
   })
@@ -143,6 +150,8 @@ const updateVendorsCache = (document: Document) => {
 const sendTelegramAlert = async (raspberryListWithChanges: ReturnType<typeof updateRapsberryCache>) => {
   let message = '🛍️ Raspberry stock changes!'
 
+  let nowAvailableRaspberryListLastStockMessagesKeys = []
+
   const getLink = (r: Raspberry) => {
     let itemLink: string
     if (USE_DIRECT_PRODUCT_LINK) itemLink = r.link
@@ -155,13 +164,14 @@ const sendTelegramAlert = async (raspberryListWithChanges: ReturnType<typeof upd
 
   if (raspberryListWithChanges.nowAvailableRaspberryList.length > 0) {
     message += `\n\nNew Raspberry in stock! 🔥🔥\n`
-    message += raspberryListWithChanges.nowAvailableRaspberryList.map(r => `✅ ${getLink(r)}`).join('\n')
-  }
+    message += raspberryListWithChanges.nowAvailableRaspberryList
+      .map(r => {
+        const key = `${r.sku}-${r.vendor}-${r.price}`
+        nowAvailableRaspberryListLastStockMessagesKeys.push(key)
 
-  // Disabled
-  if (raspberryListWithChanges.nowUnavailableRaspberryList.length > 0) {
-    message += `\n\nRaspberry now out of stock! 😫\n`
-    message += raspberryListWithChanges.nowUnavailableRaspberryList.map(r => `❌ ${getLink(r)}`).join('\n')
+        return `✅ ${getLink(r)}`
+      })
+      .join('\n')
   }
 
   message += `\n\nCurrently in stock:\n`
@@ -173,7 +183,29 @@ const sendTelegramAlert = async (raspberryListWithChanges: ReturnType<typeof upd
   message += `\n\nStock data from [rpilocator.com](${STOCK_URI})`
 
   console.log(message)
-  await bot.sendMessage(TELEGRAM_CHAT_ID, message, { parse_mode: 'Markdown' })
+  const sentMsg = await bot.sendMessage(TELEGRAM_CHAT_ID, message, { parse_mode: 'Markdown' })
+
+  // Record the message to update it later
+  nowAvailableRaspberryListLastStockMessagesKeys.forEach(key => lastStockMessages.set(key, sentMsg))
+}
+
+const updateTelegramAlert = async (raspberryListWithChanges: ReturnType<typeof updateRapsberryCache>) => {
+  for (const raspberry of raspberryListWithChanges.nowUnavailableRaspberryList) {
+    const key = `${raspberry.sku}-${raspberry.vendor}-${raspberry.price}`
+    if (lastStockMessages.has(key)) {
+      console.log(`Now unavailable: ${key}`)
+      const lastMessage = lastStockMessages.get(key)
+      await bot.editMessageText(
+        `${lastMessage.text}\n\n<b>UPDATE:</b>\n❌ OUT OF STOCK! - ${raspberry.description} | ${raspberry.vendor}`,
+        {
+          message_id: lastMessage.message_id,
+          chat_id: TELEGRAM_CHAT_ID,
+          parse_mode: 'HTML'
+        }
+      )
+      lastStockMessages.delete(key)
+    }
+  }
 }
 
 const checkStock = async () => {
@@ -185,12 +217,14 @@ const checkStock = async () => {
     const raspberryListWithChanges = updateRapsberryCache(document)
     // console.log(raspberryListWithChanges)
 
-    if (
-      raspberryListWithChanges.nowAvailableRaspberryList.length > 0 ||
-      raspberryListWithChanges.nowUnavailableRaspberryList.length > 0
-    )
+    if (raspberryListWithChanges.nowAvailableRaspberryList.length > 0) {
       await sendTelegramAlert(raspberryListWithChanges)
-    else console.log('Not in stock!')
+    } else {
+      console.log('Not in stock!')
+    }
+    if (raspberryListWithChanges.nowUnavailableRaspberryList.length > 0) {
+      await updateTelegramAlert(raspberryListWithChanges)
+    }
   } catch (error) {
     console.error(error)
     await bot.sendMessage(TELEGRAM_ADMIN_CHAT_ID, `❌ Error!\n${error.message}\n${error.stack}`, {
