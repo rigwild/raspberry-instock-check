@@ -51,7 +51,11 @@ bot.sendMessage(
 )
 
 const getHTML = async () => {
-  const rawHTML = await fetch(STOCK_URI).then(res => res.text())
+  const rawHTML = await fetch(STOCK_URI, {
+    headers: {
+      'User-Agent': 'raspberry_alert telegram bot'
+    }
+  }).then(res => res.text())
   const dom = new JSDOM(rawHTML)
   return dom.window.document
 }
