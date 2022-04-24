@@ -31,15 +31,13 @@ const rapsberryListCache = new Map<string, Raspberry>()
 const vendorsCache = new Map<string, string>()
 
 // Save the sent messages to udpate them when becomes unavailable
+type StockMessageContent = {
+  telegramMessage: TelegramBot.Message
+  raspberryAvailable: Map<string, Raspberry>
+  raspberryUnavailable: Map<string, Raspberry>
+}
 const lastStockMessagesIds = new Map<string, number>()
-const lastStockMessagesContent = new Map<
-  number,
-  {
-    telegramMessage: TelegramBot.Message
-    raspberryAvailable: Map<string, Raspberry>
-    raspberryUnavailable: Map<string, Raspberry>
-  }
->()
+const lastStockMessagesContent = new Map<number, StockMessageContent>()
 
 let debugRound = 0
 
@@ -172,7 +170,7 @@ const getRaspberryLink = (r: Raspberry) => {
     if (vendorsCache.has(r.vendor)) urlQueries.push(['vendor', vendorsCache.get(r.vendor)])
   }
   urlQueries.push(['utm_source', 'telegram'])
-  urlQueries.push(['utm_medium', 'rapsberry_stock_alert'])
+  urlQueries.push(['utm_medium', 'rapsberry_alert'])
   itemLink += '?' + urlQueries.map(([k, v]) => `${k}=${v}`).join('&')
   return `[${r.description} | ${r.vendor} | ${r.price}](${itemLink})`
 }
@@ -211,15 +209,15 @@ const getTelegramMessage = (
     .map(r => getRaspberryLink(r))
     .join('\n')
 
-  message += `\n\nStock data from [rpilocator.com](${STOCK_URI}?utm_source=telegram&utm_medium=rapsberry_stock_alert)`
+  message += `\n\nStock data from [rpilocator.com](${STOCK_URI}?utm_source=telegram&utm_medium=rapsberry_alert)`
   return message
 }
 
 const sendTelegramAlert = async (raspberryListWithChanges: ReturnType<typeof updateRapsberryCache>) => {
   const nowAvailableRaspberryListLastStockMessagesKeys = []
   const message = getTelegramMessage(raspberryListWithChanges, nowAvailableRaspberryListLastStockMessagesKeys)
-
   console.log(message)
+
   const sentMsg = await bot.sendMessage(TELEGRAM_CHAT_ID, message, { parse_mode: 'Markdown' })
 
   // Record the message to update it later
@@ -229,12 +227,14 @@ const sendTelegramAlert = async (raspberryListWithChanges: ReturnType<typeof upd
       raspberryAvailable.set(raspberryKey, raspberry)
     })
 
-    lastStockMessagesIds.set(raspberryKey, sentMsg.message_id)
-    lastStockMessagesContent.set(sentMsg.message_id, {
+    const messageContent = {
       telegramMessage: sentMsg,
       raspberryAvailable,
       raspberryUnavailable: new Map()
-    })
+    }
+    lastStockMessagesIds.set(raspberryKey, sentMsg.message_id)
+    lastStockMessagesContent.set(sentMsg.message_id, messageContent)
+
     // Delete key in 24 hours
     setTimeout(() => {
       lastStockMessagesIds.delete(raspberryKey)

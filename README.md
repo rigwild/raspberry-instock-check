@@ -2,7 +2,7 @@
 
 Get an alert on Telegram when there are Raspberry in stock ready to buy. This bot uses the website https://rpilocator.com/ to check for stock updates.
 
-Join the Telegram channel to get notifications: https://t.me/raspberry_stock_alert
+Join the Telegram channel to get notifications: [@raspberry_alert](https://t.me/raspberry_alert/35)
 
 ![screenshot](./screenshot.png)
 
@@ -37,6 +37,7 @@ List of Raspberry models:
 | ---------------- | -------------------------------------- |
 | `CM4001000`      | RPi CM4 - 1GB RAM, No MMC, No Wifi     |
 | `CM4001008`      | RPi CM4 - 1GB RAM, 8GB MMC, No Wifi    |
+| `CM4001016`      | RPi CM4 - 1GB RAM, 16GB MMC, No Wifi   |
 | `CM4001032`      | RPi CM4 - 1GB RAM, 32GB MMC, No Wifi   |
 | `CM4002000`      | RPi CM4 - 2GB RAM, No MMC, No Wifi     |
 | `CM4002008`      | RPi CM4 - 2GB RAM, 8GB MMC, No Wifi    |
@@ -51,6 +52,8 @@ List of Raspberry models:
 | `CM4008016`      | RPi CM4 - 8GB RAM, 16GB MMC, No Wifi   |
 | `CM4008032`      | RPi CM4 - 8GB RAM, 32GB MMC, No Wifi   |
 | `CM4101000`      | RPi CM4 - 1GB RAM, No MMC, With Wifi   |
+| `CM4101008`      | RPi CM4 - 1GB RAM, 8GB MMC, With Wifi  |
+| `CM4101016`      | RPi CM4 - 1GB RAM, 16GB MMC, With Wifi |
 | `CM4101032`      | RPi CM4 - 1GB RAM, 32GB MMC, With Wifi |
 | `CM4102000`      | RPi CM4 - 2GB RAM, No MMC, With Wifi   |
 | `CM4102008`      | RPi CM4 - 2GB RAM, 8GB MMC, With Wifi  |
@@ -64,11 +67,14 @@ List of Raspberry models:
 | `CM4108008`      | RPi CM4 - 8GB RAM, 8GB MMC, With Wifi  |
 | `CM4108016`      | RPi CM4 - 8GB RAM, 16GB MMC, With Wifi |
 | `CM4108032`      | RPi CM4 - 8GB RAM, 32GB MMC, With Wifi |
+| `RPI3-MODAP`     | RPi 3 Model A                          |
+| `RPI3-MODBP`     | RPi 3 Model B                          |
 | `RPI4-MODBP-1GB` | RPi 4 Model B - 1GB RAM                |
 | `RPI4-MODBP-2GB` | RPi 4 Model B - 2GB RAM                |
 | `RPI4-MODBP-4GB` | RPi 4 Model B - 4GB RAM                |
 | `RPI4-MODBP-8GB` | RPi 4 Model B - 8GB RAM                |
 | `SC0510`         | Raspberry Pi Zero 2 W                  |
+| `SC0510WH`       | Raspberry Pi Zero 2 W (w/ headers)     |
 
 ## License
 
