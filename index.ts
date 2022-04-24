@@ -31,7 +31,15 @@ const rapsberryListCache = new Map<string, Raspberry>()
 const vendorsCache = new Map<string, string>()
 
 // Save the sent messages to udpate them when becomes unavailable
-const lastStockMessages = new Map<string, TelegramBot.Message>()
+const lastStockMessagesIds = new Map<string, number>()
+const lastStockMessagesContent = new Map<
+  number,
+  {
+    telegramMessage: TelegramBot.Message
+    raspberryAvailable: Map<string, Raspberry>
+    raspberryUnavailable: Map<string, Raspberry>
+  }
+>()
 
 let debugRound = 0
 
@@ -78,63 +86,63 @@ const updateRapsberryCache = (document: Document) => {
   if (process.env.NODE_ENV === 'development') {
     const keys = [...rapsberryListCache.keys()]
     if (debugRound === 1) {
-      raspberryList.find(x => `${x.sku}-${x.vendor}` === keys[50])!.available = true
+      raspberryList.find(x => getRaspberryKey(x) === keys[50])!.available = true
     }
     if (debugRound === 2) {
-      raspberryList.find(x => `${x.sku}-${x.vendor}` === keys[50])!.available = false
+      raspberryList.find(x => getRaspberryKey(x) === keys[50])!.available = false
     }
     if (debugRound === 3) {
-      raspberryList.find(x => `${x.sku}-${x.vendor}` === keys[25])!.available = true
-      raspberryList.find(x => `${x.sku}-${x.vendor}` === keys[50])!.available = true
+      raspberryList.find(x => getRaspberryKey(x) === keys[25])!.available = true
+      raspberryList.find(x => getRaspberryKey(x) === keys[50])!.available = true
     }
     if (debugRound === 4) {
-      raspberryList.find(x => `${x.sku}-${x.vendor}` === keys[25])!.available = false
-      raspberryList.find(x => `${x.sku}-${x.vendor}` === keys[50])!.available = true
+      raspberryList.find(x => getRaspberryKey(x) === keys[25])!.available = false
+      raspberryList.find(x => getRaspberryKey(x) === keys[50])!.available = true
     }
     if (debugRound === 5) {
-      raspberryList.find(x => `${x.sku}-${x.vendor}` === keys[25])!.available = false
-      raspberryList.find(x => `${x.sku}-${x.vendor}` === keys[50])!.available = false
+      raspberryList.find(x => getRaspberryKey(x) === keys[25])!.available = false
+      raspberryList.find(x => getRaspberryKey(x) === keys[50])!.available = false
     }
     debugRound++
   }
 
   let isFirstInit = rapsberryListCache.size === 0
-  const nowAvailableRaspberryList: Raspberry[] = []
-  const nowUnavailableRaspberryList: Raspberry[] = []
+  const nowAvailableRaspberry: Map<string, Raspberry> = new Map()
+  const nowUnavailableRaspberry: Map<string, Raspberry> = new Map()
   const raspberryListWithChanges = {
     raspberryList,
-    nowAvailableRaspberryList,
-    nowUnavailableRaspberryList
+    nowAvailableRaspberry,
+    nowUnavailableRaspberry
   }
 
   raspberryList.forEach(raspberry => {
-    const key = `${raspberry.sku}-${raspberry.vendor}`
+    const raspberryKey = getRaspberryKey(raspberry)
     if (isFirstInit) {
-      rapsberryListCache.set(key, raspberry)
+      rapsberryListCache.set(raspberryKey, raspberry)
       // Do not notify on startup
       // if (raspberry.available) nowAvailableRaspberryList.push(raspberry)
       return
     }
 
-    const cachedRaspberry = rapsberryListCache.get(key)
+    const cachedRaspberry = rapsberryListCache.get(raspberryKey)
 
     // New Raspberry listing appeared on rpilocator.com
     if (!cachedRaspberry) {
-      rapsberryListCache.set(key, raspberry)
-      if (raspberry.available) nowAvailableRaspberryList.push(raspberry)
+      rapsberryListCache.set(raspberryKey, raspberry)
+      if (raspberry.available) nowAvailableRaspberry.set(raspberryKey, raspberry)
       return
     }
 
     // Alert if the raspberry is now available but was not before
     if (raspberry.available && !cachedRaspberry.available) {
-      nowAvailableRaspberryList.push(raspberry)
+      nowAvailableRaspberry.set(raspberryKey, raspberry)
     }
     // Alert if the raspberry is now unavailable but was before
     if (!raspberry.available && cachedRaspberry.available) {
-      nowUnavailableRaspberryList.push(raspberry)
+      nowUnavailableRaspberry.set(raspberryKey, raspberry)
     }
 
-    rapsberryListCache.set(key, raspberry)
+    rapsberryListCache.set(raspberryKey, raspberry)
   })
 
   if (isFirstInit) isFirstInit = false
@@ -155,66 +163,103 @@ const updateVendorsCache = (document: Document) => {
   vendorsCache.delete('All')
 }
 
-const sendTelegramAlert = async (raspberryListWithChanges: ReturnType<typeof updateRapsberryCache>) => {
+const getRaspberryLink = (r: Raspberry) => {
+  let itemLink: string
+  let urlQueries: Array<[string, string]> = []
+  if (USE_DIRECT_PRODUCT_LINK) itemLink = r.link
+  else {
+    itemLink = STOCK_URI
+    if (vendorsCache.has(r.vendor)) urlQueries.push(['vendor', vendorsCache.get(r.vendor)])
+  }
+  urlQueries.push(['utm_source', 'telegram'])
+  urlQueries.push(['utm_medium', 'rapsberry_stock_alert'])
+  itemLink += '?' + urlQueries.map(([k, v]) => `${k}=${v}`).join('&')
+  return `[${r.description} | ${r.vendor} | ${r.price}](${itemLink})`
+}
+
+const getRaspberryKey = (r: Raspberry) => `${r.sku}-${r.vendor}-${r.price}`
+
+const getTelegramMessage = (
+  raspberryAvailabilities: ReturnType<typeof updateRapsberryCache>,
+  nowAvailableRaspberryListLastStockMessagesKeys?: string[]
+) => {
   let message = '🛍️ Raspberry stock changes!'
 
-  let nowAvailableRaspberryListLastStockMessagesKeys = []
-
-  const getLink = (r: Raspberry) => {
-    let itemLink: string
-    let urlQueries: Array<[string, string]> = []
-    if (USE_DIRECT_PRODUCT_LINK) itemLink = r.link
-    else {
-      itemLink = STOCK_URI
-      if (vendorsCache.has(r.vendor)) urlQueries.push(['vendor', vendorsCache.get(r.vendor)])
-    }
-    urlQueries.push(['utm_source', 'telegram'])
-    urlQueries.push(['utm_medium', 'rapsberry_stock_alert'])
-    itemLink += '?' + urlQueries.map(([k, v]) => `${k}=${v}`).join('&')
-    return `[${r.description} | ${r.vendor} | ${r.price}](${itemLink})`
-  }
-
-  if (raspberryListWithChanges.nowAvailableRaspberryList.length > 0) {
+  if (raspberryAvailabilities.nowAvailableRaspberry.size > 0) {
     message += `\n\nNew Raspberry in stock! 🔥🔥\n`
-    message += raspberryListWithChanges.nowAvailableRaspberryList
+    message += [...raspberryAvailabilities.nowAvailableRaspberry.values()]
       .map(r => {
-        const key = `${r.sku}-${r.vendor}-${r.price}`
-        nowAvailableRaspberryListLastStockMessagesKeys.push(key)
-
-        return `✅ ${getLink(r)}`
+        const raspberryKey = getRaspberryKey(r)
+        if (nowAvailableRaspberryListLastStockMessagesKeys) {
+          nowAvailableRaspberryListLastStockMessagesKeys.push(raspberryKey)
+        }
+        return `✅ ${getRaspberryLink(r)}`
       })
       .join('\n')
   }
 
-  // message += `\n\nCurrently in stock:\n`
-  // message += raspberryListWithChanges.raspberryList
-  //   .filter(r => r.available)
-  //   .map(r => getLink(r))
-  //   .join('\n')
+  if (raspberryAvailabilities.nowUnavailableRaspberry.size > 0) {
+    message += `\n\nNow out of stock! 😔\n`
+    message += [...raspberryAvailabilities.nowUnavailableRaspberry.values()]
+      .map(r => `❌ ${getRaspberryLink(r)}`)
+      .join('\n')
+  }
+
+  message += `\n\nCurrently in stock:\n`
+  message += raspberryAvailabilities.raspberryList
+    .filter(r => r.available)
+    .map(r => getRaspberryLink(r))
+    .join('\n')
 
   message += `\n\nStock data from [rpilocator.com](${STOCK_URI}?utm_source=telegram&utm_medium=rapsberry_stock_alert)`
+  return message
+}
+
+const sendTelegramAlert = async (raspberryListWithChanges: ReturnType<typeof updateRapsberryCache>) => {
+  const nowAvailableRaspberryListLastStockMessagesKeys = []
+  const message = getTelegramMessage(raspberryListWithChanges, nowAvailableRaspberryListLastStockMessagesKeys)
 
   console.log(message)
   const sentMsg = await bot.sendMessage(TELEGRAM_CHAT_ID, message, { parse_mode: 'Markdown' })
 
   // Record the message to update it later
-  nowAvailableRaspberryListLastStockMessagesKeys.forEach(key => {
-    lastStockMessages.set(key, sentMsg)
+  nowAvailableRaspberryListLastStockMessagesKeys.forEach(raspberryKey => {
+    const raspberryAvailable = new Map()
+    raspberryListWithChanges.nowAvailableRaspberry.forEach(raspberry => {
+      raspberryAvailable.set(raspberryKey, raspberry)
+    })
+
+    lastStockMessagesIds.set(raspberryKey, sentMsg.message_id)
+    lastStockMessagesContent.set(sentMsg.message_id, {
+      telegramMessage: sentMsg,
+      raspberryAvailable,
+      raspberryUnavailable: new Map()
+    })
     // Delete key in 24 hours
-    setTimeout(() => lastStockMessages.delete(key), 24 * 60 * 60 * 1000)
+    setTimeout(() => {
+      lastStockMessagesIds.delete(raspberryKey)
+      lastStockMessagesContent.delete(sentMsg.message_id)
+    }, 24 * 60 * 60 * 1000)
   })
 }
 
 const updateTelegramAlert = async (raspberryListWithChanges: ReturnType<typeof updateRapsberryCache>) => {
-  for (const raspberry of raspberryListWithChanges.nowUnavailableRaspberryList) {
-    const key = `${raspberry.sku}-${raspberry.vendor}-${raspberry.price}`
-    if (lastStockMessages.has(key)) {
-      console.log(`Now unavailable: ${key}`)
-      const lastMessage = lastStockMessages.get(key)
-      const raspberryTag = `${raspberry.description} | ${raspberry.vendor}`
-      lastMessage.text = lastMessage.text.replace(`✅ ${raspberryTag}`, `❌ ${raspberryTag}`)
-      await bot.editMessageText(lastMessage.text, {
-        message_id: lastMessage.message_id,
+  for (const raspberry of raspberryListWithChanges.nowUnavailableRaspberry.values()) {
+    const raspberryKey = getRaspberryKey(raspberry)
+    if (lastStockMessagesIds.has(raspberryKey)) {
+      console.log(`Now unavailable: ${raspberryKey}`)
+      const message_id = lastStockMessagesIds.get(raspberryKey)
+      const lastMessageContent = lastStockMessagesContent.get(message_id)
+      lastMessageContent.raspberryAvailable.delete(raspberryKey)
+      lastMessageContent.raspberryUnavailable.set(raspberryKey, raspberry)
+      const raspberryAvailabilities = {
+        raspberryList: raspberryListWithChanges.raspberryList,
+        nowAvailableRaspberry: lastMessageContent.raspberryAvailable,
+        nowUnavailableRaspberry: lastMessageContent.raspberryUnavailable
+      }
+      lastMessageContent.telegramMessage.text = getTelegramMessage(raspberryAvailabilities)
+      await bot.editMessageText(lastMessageContent.telegramMessage.text, {
+        message_id: lastMessageContent.telegramMessage.message_id,
         chat_id: TELEGRAM_CHAT_ID,
         parse_mode: 'Markdown'
       })
@@ -231,12 +276,12 @@ const checkStock = async () => {
     const raspberryListWithChanges = updateRapsberryCache(document)
     // console.log(raspberryListWithChanges)
 
-    if (raspberryListWithChanges.nowAvailableRaspberryList.length > 0) {
+    if (raspberryListWithChanges.nowAvailableRaspberry.size > 0) {
       await sendTelegramAlert(raspberryListWithChanges)
     } else {
       console.log('Not in stock!')
     }
-    if (raspberryListWithChanges.nowUnavailableRaspberryList.length > 0) {
+    if (raspberryListWithChanges.nowUnavailableRaspberry.size > 0) {
       await updateTelegramAlert(raspberryListWithChanges)
     }
   } catch (error) {
