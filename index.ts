@@ -58,10 +58,8 @@ bot.sendMessage(
 // .then(res => console.log(res.message_id))
 
 const getHTML = async () => {
-  let rawHTML = await fetch(STOCK_URI, {
-    headers: {
-      'User-Agent': 'raspberry_alert telegram bot'
-    }
+  let rawHTML = await fetch(`${STOCK_URI}?instock`, {
+    headers: { 'User-Agent': 'raspberry_alert telegram bot' }
   }).then(res => res.text())
 
   if (process.env.NODE_ENV === 'development' && debugRound === 2) {
@@ -323,7 +321,20 @@ const checkStock = async () => {
 
   try {
     console.log('Checking stock...')
-    const document = await getHTML()
+
+    // Do the request 2 times and check the result is the same
+    // Sometimes rpilocator returns invalid data (race condition when updating on their side)
+    const [document, documentDoubleCheck] = await Promise.all([getHTML(), getHTML()])
+    if (
+      document.body.querySelector('#prodTable').innerHTML.replace(/\n/g, '') !==
+      documentDoubleCheck.body.querySelector('#prodTable').innerHTML.replace(/\n/g, '')
+    ) {
+      const timestamp = Date.now()
+      writeFileSync(`invalid-double-check-${timestamp}-1.html`, document.body.innerHTML.replace(/\n/g, ''))
+      writeFileSync(`invalid-double-check-${timestamp}-2.html`, documentDoubleCheck.body.innerHTML.replace(/\n/g, ''))
+      console.error('Detected invalid data when double checking')
+      return
+    }
 
     updateVendorsCache(document)
     const raspberryListWithChanges = updateRapsberryCache(document)
@@ -332,7 +343,8 @@ const checkStock = async () => {
 
     if (raspberryListWithChanges.nowAvailableRaspberry.size > 0) {
       await sendTelegramAlert(raspberryListWithChanges)
-      if (process.env.NODE_ENV === 'development') writeFileSync(Date.now() + '.html', document.body.innerHTML)
+      if (process.env.NODE_ENV === 'development')
+        writeFileSync(`now-available-${Date.now()}.html`, document.body.innerHTML)
     } else {
       console.log('Not in stock!')
     }
@@ -341,7 +353,7 @@ const checkStock = async () => {
     }
   } catch (error) {
     console.error(error)
-    await bot.sendMessage(TELEGRAM_ADMIN_CHAT_ID, `❌ Error!\n${error.message}\n${error.stack}`, {
+    await bot.sendMessage(TELEGRAM_ADMIN_CHAT_ID, `❌ Error!\n${error.message}\n\`\`\`${error.stack}\`\`\``, {
       parse_mode: 'Markdown'
     })
   }
