@@ -2,6 +2,7 @@
 import fetch from 'node-fetch'
 import { JSDOM } from 'jsdom'
 import TelegramBot from 'node-telegram-bot-api'
+import { readFileSync, writeFileSync } from 'fs'
 
 const STOCK_URI = 'https://rpilocator.com/'
 const SEARCHED_RASPBERRY_MODELS = process.env.SEARCHED_RASPBERRY_MODELS
@@ -57,11 +58,16 @@ bot.sendMessage(
 // .then(res => console.log(res.message_id))
 
 const getHTML = async () => {
-  const rawHTML = await fetch(STOCK_URI, {
+  let rawHTML = await fetch(STOCK_URI, {
     headers: {
       'User-Agent': 'raspberry_alert telegram bot'
     }
   }).then(res => res.text())
+
+  if (process.env.NODE_ENV === 'development' && debugRound === 2) {
+    // rawHTML = readFileSync('1650901732509.html', 'utf8')
+  }
+
   const dom = new JSDOM(rawHTML)
   return dom.window.document
 }
@@ -80,6 +86,17 @@ const parseHTMLGetRaspberryList = (document: Document): Raspberry[] => {
         lastStock: trRows[6]!.textContent!.trim(),
         price: trRows[7]!.textContent!.trim()
       }
+      if (process.env.NODE_ENV === 'development' && raspberry.available) {
+        console.log('wtf available?', {
+          sku: trRows[0]!.textContent!.trim(),
+          description: trRows[1]!.textContent!.trim(),
+          link: trRows[2]!.querySelector('a')?.href!,
+          vendor: trRows[4]!.textContent!.trim(),
+          available: trRows[5]!.textContent!.trim(),
+          lastStock: trRows[6]!.textContent!.trim(),
+          price: trRows[7]!.textContent!.trim()
+        })
+      }
       return raspberry
     })
   return SEARCHED_RASPBERRY_MODELS?.[0] === '*'
@@ -93,7 +110,7 @@ const updateRapsberryCache = (document: Document) => {
   const raspberryList = parseHTMLGetRaspberryList(document)
 
   // Testing
-  if (process.env.NODE_ENV === 'development') {
+  if (process.env.NODE_ENV === 'test') {
     const keys = [...rapsberryListCache.keys()]
     if (debugRound === 1) {
       raspberryList.find(x => getRaspberryKey(x) === keys[50])!.available = true
@@ -113,7 +130,6 @@ const updateRapsberryCache = (document: Document) => {
       raspberryList.find(x => getRaspberryKey(x) === keys[25])!.available = false
       raspberryList.find(x => getRaspberryKey(x) === keys[50])!.available = false
     }
-    debugRound++
   }
 
   let isFirstInit = rapsberryListCache.size === 0
@@ -209,7 +225,7 @@ export const toHumanDate = (date: Date) =>
  * @see https://gist.github.com/rigwild/bf712322eac2244096468985ee4a5aae
  */
 export const toHumanDateTime = (date: Date) =>
-  `${toHumanDate(date)} - ${twoDigits(date.getHours())}:${twoDigits(date.getMinutes())}:${twoDigits(date.getSeconds())}`
+  `${toHumanDate(date)} - ${twoDigits(date.getHours())}:${twoDigits(date.getMinutes())}`
 
 const getTelegramMessage = (
   raspberryAvailabilities: ReturnType<typeof updateRapsberryCache>,
@@ -251,6 +267,7 @@ const sendTelegramAlert = async (raspberryListWithChanges: ReturnType<typeof upd
   const nowAvailableRaspberryListLastStockMessagesKeys = []
   const message = getTelegramMessage(raspberryListWithChanges, nowAvailableRaspberryListLastStockMessagesKeys)
   console.log(message)
+  console.log(raspberryListWithChanges.nowAvailableRaspberry)
 
   const sentMsg = await bot.sendMessage(TELEGRAM_CHAT_ID, message, { parse_mode: 'Markdown' })
 
@@ -302,16 +319,20 @@ const updateTelegramAlert = async (raspberryListWithChanges: ReturnType<typeof u
 }
 
 const checkStock = async () => {
+  if (process.env.NODE_ENV === 'development') console.log(debugRound)
+
   try {
     console.log('Checking stock...')
     const document = await getHTML()
 
     updateVendorsCache(document)
     const raspberryListWithChanges = updateRapsberryCache(document)
+    console.log('nowAvailableRaspberry', raspberryListWithChanges.nowAvailableRaspberry)
     // console.log(raspberryListWithChanges)
 
     if (raspberryListWithChanges.nowAvailableRaspberry.size > 0) {
       await sendTelegramAlert(raspberryListWithChanges)
+      if (process.env.NODE_ENV === 'development') writeFileSync(Date.now() + '.html', document.body.innerHTML)
     } else {
       console.log('Not in stock!')
     }
@@ -324,6 +345,7 @@ const checkStock = async () => {
       parse_mode: 'Markdown'
     })
   }
+  debugRound++
 }
 
 const liveStockUpdate = async () => {
@@ -340,14 +362,17 @@ const liveStockUpdate = async () => {
   message += '\n🌐 Stock data from [rpilocator](https://rpilocator.com/?utm_source=telegram&utm_medium=rapsberry_alert)'
   message += `\n\n🔄 Last update at ${toHumanDateTime(new Date())}`
 
-  await bot.editMessageText(message, {
-    chat_id: TELEGRAM_CHAT_ID,
-    message_id: TELEGRAM_LIVE_STOCK_UPDATE_MESSAGE_ID,
-    parse_mode: 'Markdown'
-  })
+  await bot
+    .editMessageText(message, {
+      chat_id: TELEGRAM_CHAT_ID,
+      message_id: TELEGRAM_LIVE_STOCK_UPDATE_MESSAGE_ID,
+      parse_mode: 'Markdown'
+    })
+    .catch(() => {})
 }
 
-checkStock()
-liveStockUpdate()
-setInterval(checkStock, CHECK_INTERVAL)
-setInterval(liveStockUpdate, 10_000)
+checkStock().finally(() => {
+  liveStockUpdate()
+  setInterval(checkStock, CHECK_INTERVAL)
+  setInterval(liveStockUpdate, 10_000)
+})

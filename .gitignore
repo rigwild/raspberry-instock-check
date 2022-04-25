@@ -1,5 +1,6 @@
 node_modules
 run.sh
 run.dev.sh
+run.test.sh
 run_*
 dist
