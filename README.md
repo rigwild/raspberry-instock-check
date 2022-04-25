@@ -29,6 +29,7 @@ TELEGRAM_CHAT_ID=<telegram_chat_id_where_to_send_alerts> \
 TELEGRAM_CURRENTLY_IN_STOCK_MESSAGE_ID=<telegram_message_id_to_live_update_current_stock> \
 USE_DIRECT_PRODUCT_LINK=1 \
 SEARCHED_RASPBERRY_MODELS=RPI4-MODBP-4GB,RPI4-MODBP-8GB \
+PROXY=http://user:pass@123.123.123.123:51234 \
 pnpm start
 ```
 

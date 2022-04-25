@@ -7,6 +7,7 @@
     "build": "esbuild --format=esm --platform=node --outfile=dist/index.js index.ts"
   },
   "dependencies": {
+    "https-proxy-agent": "^5.0.1",
     "jsdom": "^19.0.0",
     "node-fetch": "^3.2.0",
     "node-telegram-bot-api": "^0.56.0"

@@ -2,7 +2,9 @@
 import fetch from 'node-fetch'
 import { JSDOM } from 'jsdom'
 import TelegramBot from 'node-telegram-bot-api'
-import { readFileSync, writeFileSync } from 'fs'
+import { writeFileSync } from 'fs'
+import HttpsProxyAgentImport from 'https-proxy-agent'
+const { HttpsProxyAgent } = HttpsProxyAgentImport
 
 const STOCK_URI = 'https://rpilocator.com/'
 const SEARCHED_RASPBERRY_MODELS = process.env.SEARCHED_RASPBERRY_MODELS
@@ -17,6 +19,8 @@ const TELEGRAM_LIVE_STOCK_UPDATE_MESSAGE_ID = process.env.TELEGRAM_LIVE_STOCK_UP
   : undefined
 const TELEGRAM_ADMIN_CHAT_ID = process.env.TELEGRAM_ADMIN_CHAT_ID!
 const USE_DIRECT_PRODUCT_LINK = process.env.USE_DIRECT_PRODUCT_LINK === '1'
+
+const PROXY = process.env.PROXY
 
 type Raspberry = {
   sku: string
@@ -52,6 +56,7 @@ bot.sendMessage(
   TELEGRAM_ADMIN_CHAT_ID,
   `Bot started! ⚡` +
     `\nLooking for models SKU starting with: ${searchedRaspberryStr}` +
+    (PROXY ? `\nUsing proxy: ${new URL(PROXY).hostname}:${new URL(PROXY).port}` : '') +
     `\n🌟 Star our [GitHub](https://github.com/rigwild/raspberry-instock-check)`,
   { parse_mode: 'Markdown' }
 )
@@ -59,7 +64,8 @@ bot.sendMessage(
 
 const getHTML = async () => {
   let rawHTML = await fetch(`${STOCK_URI}?instock`, {
-    headers: { 'User-Agent': 'raspberry_alert telegram bot' }
+    headers: { 'User-Agent': 'raspberry_alert telegram bot' },
+    agent: PROXY ? new HttpsProxyAgent(PROXY) : undefined
   }).then(res => res.text())
 
   if (process.env.NODE_ENV === 'development' && debugRound === 2) {

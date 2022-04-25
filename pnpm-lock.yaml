@@ -5,11 +5,13 @@ specifiers:
   '@types/node': ^17.0.21
   '@types/node-telegram-bot-api': ^0.56.0
   esbuild: ^0.14.25
+  https-proxy-agent: ^5.0.1
   jsdom: ^19.0.0
   node-fetch: ^3.2.0
   node-telegram-bot-api: ^0.56.0
 
 dependencies:
+  https-proxy-agent: 5.0.1
   jsdom: 19.0.0
   node-fetch: 3.2.0
   node-telegram-bot-api: 0.56.0
@@ -724,8 +726,8 @@ packages:
       sshpk: 1.17.0
     dev: false
 
-  /https-proxy-agent/5.0.0:
-    resolution: {integrity: sha512-EkYm5BcKUGiduxzSt3Eppko+PiNWNEpa4ySk9vTC6wDsQJW9rHSa+UhGNJoRYp7bz6Ht1eaRIa6QaJqO5rCFbA==}
+  /https-proxy-agent/5.0.1:
+    resolution: {integrity: sha512-dFcAjpTQFgoLMzC2VwU+C/CbS7uRL0lWmxDITmqm7C+7F0Odmj6s9l6alZc6AELXhrnggM2CeWSXHGOdX2YtwA==}
     engines: {node: '>= 6'}
     dependencies:
       agent-base: 6.0.2
@@ -865,7 +867,7 @@ packages:
       form-data: 4.0.0
       html-encoding-sniffer: 3.0.0
       http-proxy-agent: 5.0.0
-      https-proxy-agent: 5.0.0
+      https-proxy-agent: 5.0.1
       is-potential-custom-element-name: 1.0.1
       nwsapi: 2.2.0
       parse5: 6.0.1
