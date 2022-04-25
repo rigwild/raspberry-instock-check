@@ -26,6 +26,7 @@ If omitted, `SEARCHED_RASPBERRY_MODELS` will watch all Raspberry models.
 TELEGRAM_TOKEN=<telegram_bot_token> \
 TELEGRAM_ADMIN_CHAT_ID=<telegram_chat_id_where_to_send_debug_info> \
 TELEGRAM_CHAT_ID=<telegram_chat_id_where_to_send_alerts> \
+TELEGRAM_CURRENTLY_IN_STOCK_MESSAGE_ID=<telegram_message_id_to_live_update_current_stock> \
 USE_DIRECT_PRODUCT_LINK=1 \
 SEARCHED_RASPBERRY_MODELS=RPI4-MODBP-4GB,RPI4-MODBP-8GB \
 pnpm start

@@ -11,6 +11,9 @@ const CHECK_INTERVAL = process.env.CHECK_INTERVAL ? +process.env.CHECK_INTERVAL 
 
 const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN!
 const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID!
+const TELEGRAM_LIVE_STOCK_UPDATE_MESSAGE_ID = process.env.TELEGRAM_LIVE_STOCK_UPDATE_MESSAGE_ID
+  ? +process.env.TELEGRAM_LIVE_STOCK_UPDATE_MESSAGE_ID
+  : undefined
 const TELEGRAM_ADMIN_CHAT_ID = process.env.TELEGRAM_ADMIN_CHAT_ID!
 const USE_DIRECT_PRODUCT_LINK = process.env.USE_DIRECT_PRODUCT_LINK === '1'
 
@@ -48,9 +51,10 @@ bot.sendMessage(
   TELEGRAM_ADMIN_CHAT_ID,
   `Bot started! ⚡` +
     `\nLooking for models SKU starting with: ${searchedRaspberryStr}` +
-    `\nhttps://github.com/rigwild/raspberry-instock-check`,
+    `\n🌟 Star our [GitHub](https://github.com/rigwild/raspberry-instock-check)`,
   { parse_mode: 'Markdown' }
 )
+// .then(res => console.log(res.message_id))
 
 const getHTML = async () => {
   const rawHTML = await fetch(STOCK_URI, {
@@ -185,6 +189,28 @@ const getRaspberryLink = (r: Raspberry) => {
 
 const getRaspberryKey = (r: Raspberry) => `${r.sku}-${r.vendor}-${r.price}`
 
+const twoDigits = (serializable: any) => serializable.toString().padStart(2, '0')
+
+/**
+ * Transform a date object to a human-readable date format
+ * `2019-12-31`
+ * @param date Date to format
+ * @returns formated date
+ * @see https://gist.github.com/rigwild/bf712322eac2244096468985ee4a5aae
+ */
+export const toHumanDate = (date: Date) =>
+  `${date.getFullYear()}-${twoDigits(date.getMonth() + 1)}-${twoDigits(date.getDate())}`
+
+/**
+ * Transform a date object to a human-readable datetime format
+ * `2019-12-31 - 24:60:60`
+ * @param date Date to format
+ * @returns formated datetime
+ * @see https://gist.github.com/rigwild/bf712322eac2244096468985ee4a5aae
+ */
+export const toHumanDateTime = (date: Date) =>
+  `${toHumanDate(date)} - ${twoDigits(date.getHours())}:${twoDigits(date.getMinutes())}:${twoDigits(date.getSeconds())}`
+
 const getTelegramMessage = (
   raspberryAvailabilities: ReturnType<typeof updateRapsberryCache>,
   nowAvailableRaspberryListLastStockMessagesKeys?: string[]
@@ -211,13 +237,13 @@ const getTelegramMessage = (
       .join('\n')
   }
 
-  message += `\n\nCurrently in stock:\n`
-  message += raspberryAvailabilities.raspberryList
-    .filter(r => r.available)
-    .map(r => getRaspberryLink(r))
-    .join('\n')
+  // message += `\n\nCurrently in stock:\n`
+  // // Get links and remove duplicates
+  // const links = new Set(raspberryAvailabilities.raspberryList.filter(r => r.available).map(r => getRaspberryLink(r)))
+  // message += [...links].join('\n')
 
-  message += `\n\nStock data from [rpilocator.com](${STOCK_URI}?utm_source=telegram&utm_medium=rapsberry_alert)`
+  message += '\n\n🌟 Star our [GitHub](https://github.com/rigwild/raspberry-instock-check)'
+  message += `\n🌐 Stock data from [rpilocator](${STOCK_URI}?utm_source=telegram&utm_medium=rapsberry_alert)`
   return message
 }
 
@@ -267,8 +293,8 @@ const updateTelegramAlert = async (raspberryListWithChanges: ReturnType<typeof u
       }
       lastMessageContent.telegramMessage.text = getTelegramMessage(raspberryAvailabilities)
       await bot.editMessageText(lastMessageContent.telegramMessage.text, {
-        message_id: lastMessageContent.telegramMessage.message_id,
         chat_id: TELEGRAM_CHAT_ID,
+        message_id: lastMessageContent.telegramMessage.message_id,
         parse_mode: 'Markdown'
       })
     }
@@ -300,5 +326,28 @@ const checkStock = async () => {
   }
 }
 
+const liveStockUpdate = async () => {
+  if (!TELEGRAM_LIVE_STOCK_UPDATE_MESSAGE_ID) return
+
+  let message = '🔴🤖 Live Raspberry Stock Update\n\n'
+
+  const available = [...new Set([...rapsberryListCache.values()])]
+    .filter(x => x.available)
+    .map(r => `✅ ${getRaspberryLink(r)}`)
+  message += available.length > 0 ? available.join('\n') : '🤷‍♀️ Nothing available right now'
+
+  message += '\n\n🌟 Star our [GitHub](https://github.com/rigwild/raspberry-instock-check)'
+  message += '\n🌐 Stock data from [rpilocator](https://rpilocator.com/?utm_source=telegram&utm_medium=rapsberry_alert)'
+  message += `\n\n🔄 Last update at ${toHumanDateTime(new Date())}`
+
+  await bot.editMessageText(message, {
+    chat_id: TELEGRAM_CHAT_ID,
+    message_id: TELEGRAM_LIVE_STOCK_UPDATE_MESSAGE_ID,
+    parse_mode: 'Markdown'
+  })
+}
+
 checkStock()
+liveStockUpdate()
 setInterval(checkStock, CHECK_INTERVAL)
+setInterval(liveStockUpdate, 10_000)
