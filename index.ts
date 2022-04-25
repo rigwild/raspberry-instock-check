@@ -5,7 +5,7 @@ import TelegramBot from 'node-telegram-bot-api'
 
 const STOCK_URI = 'https://rpilocator.com/'
 const SEARCHED_RASPBERRY_MODELS = process.env.SEARCHED_RASPBERRY_MODELS
-  ? process.env.SEARCHED_RASPBERRY_MODELS.split(',')
+  ? process.env.SEARCHED_RASPBERRY_MODELS.trim().toLowerCase().split(',')
   : ['*']
 const CHECK_INTERVAL = process.env.CHECK_INTERVAL ? +process.env.CHECK_INTERVAL : 60_000
 
@@ -42,11 +42,13 @@ const lastStockMessagesContent = new Map<number, StockMessageContent>()
 let debugRound = 0
 
 const bot = new TelegramBot(TELEGRAM_TOKEN)
+const searchedRaspberryStr =
+  SEARCHED_RASPBERRY_MODELS?.[0] === '*' ? ' All' : `\n${SEARCHED_RASPBERRY_MODELS.map(x => `\`${x}\``).join('\n')}`
 bot.sendMessage(
   TELEGRAM_ADMIN_CHAT_ID,
-  `Bot started! ⚡ Looking for models:${
-    SEARCHED_RASPBERRY_MODELS?.[0] === '*' ? ' All' : '\n' + SEARCHED_RASPBERRY_MODELS.map(x => `\`${x}\``).join('\n')
-  }\nhttps://github.com/rigwild/raspberry-instock-check`,
+  `Bot started! ⚡` +
+    `\nLooking for models SKU starting with: ${searchedRaspberryStr}` +
+    `\nhttps://github.com/rigwild/raspberry-instock-check`,
   { parse_mode: 'Markdown' }
 )
 
@@ -78,7 +80,9 @@ const parseHTMLGetRaspberryList = (document: Document): Raspberry[] => {
     })
   return SEARCHED_RASPBERRY_MODELS?.[0] === '*'
     ? raspberryList
-    : raspberryList.filter(x => SEARCHED_RASPBERRY_MODELS.includes(x.sku))
+    : raspberryList.filter(
+        r => r.available && SEARCHED_RASPBERRY_MODELS.some(model => r.sku.toLowerCase().startsWith(model))
+      )
 }
 
 const updateRapsberryCache = (document: Document) => {
