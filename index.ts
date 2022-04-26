@@ -328,12 +328,19 @@ const checkStock = async () => {
   try {
     console.log('Checking stock...')
 
-    // Do the request 2 times and check the result is the same
+    // Do the request 2 times with a bit of delay and check the result is the same
     // Sometimes rpilocator returns invalid data (race condition when updating on their side)
-    const [document, documentDoubleCheck] = await Promise.all([getHTML(), getHTML()])
+    const [document, documentDoubleCheck] = await Promise.all([
+      getHTML(),
+      new Promise(resolve => setTimeout(() => resolve(getHTML()), 100)) as Promise<Document>
+    ])
+
+    const documentTable = document.body.querySelector('#prodTable')
+    const documentDoubleCheckTable = documentDoubleCheck.body.querySelector('#prodTable')
     if (
-      document.body.querySelector('#prodTable').innerHTML.replace(/\n/g, '') !==
-      documentDoubleCheck.body.querySelector('#prodTable').innerHTML.replace(/\n/g, '')
+      !documentTable ||
+      !documentDoubleCheckTable ||
+      documentTable.innerHTML.replace(/\n/g, '') !== documentDoubleCheckTable.innerHTML.replace(/\n/g, '')
     ) {
       const timestamp = Date.now()
       writeFileSync(`invalid-double-check-${timestamp}-1.html`, document.body.innerHTML.replace(/\n/g, ''))
@@ -391,6 +398,6 @@ const liveStockUpdate = async () => {
 
 checkStock().finally(() => {
   liveStockUpdate()
-  setInterval(checkStock, CHECK_INTERVAL)
+  setInterval(checkStock, CHECK_INTERVAL + Math.random() * 3000)
   setInterval(liveStockUpdate, 10_000)
 })
