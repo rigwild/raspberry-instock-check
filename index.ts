@@ -63,10 +63,16 @@ bot.sendMessage(
 // .then(res => console.log(res.message_id))
 
 const getHTML = async () => {
-  let rawHTML = await fetch(`${STOCK_URI}?instock`, {
-    headers: { 'User-Agent': 'raspberry_alert telegram bot' },
-    agent: PROXY ? new HttpsProxyAgent(PROXY) : undefined
-  }).then(res => res.text())
+  let rawHTML: string
+
+  if (process.env.NODE_ENV === 'test') {
+    rawHTML = readFileSync('../_mock_fetched_data_full.html', { encoding: 'utf-8' })
+  } else {
+    rawHTML = await fetch(`${STOCK_URI}?instock`, {
+      headers: { 'User-Agent': 'raspberry_alert telegram bot' },
+      agent: PROXY ? new HttpsProxyAgent(PROXY) : undefined
+    }).then(res => res.text())
+  }
 
   if (process.env.NODE_ENV === 'development' && debugRound === 2) {
     // rawHTML = readFileSync('1650901732509.html', 'utf8')
@@ -332,7 +338,7 @@ const checkStock = async () => {
     // Sometimes rpilocator returns invalid data (race condition when updating on their side)
     const [document, documentDoubleCheck] = await Promise.all([
       getHTML(),
-      new Promise(resolve => setTimeout(() => resolve(getHTML()), 100)) as Promise<Document>
+      new Promise(resolve => setTimeout(() => resolve(getHTML()), 1000)) as Promise<Document>
     ])
 
     const documentTable = document.body.querySelector('#prodTable')
@@ -399,5 +405,5 @@ const liveStockUpdate = async () => {
 checkStock().finally(() => {
   liveStockUpdate()
   setInterval(checkStock, CHECK_INTERVAL + Math.random() * 3000)
-  setInterval(liveStockUpdate, 10_000)
+  setInterval(liveStockUpdate, process.env.NODE_ENV === 'test' ? 2000 : 10_000)
 })
