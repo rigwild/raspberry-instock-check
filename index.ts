@@ -2,7 +2,7 @@
 import fetch from 'node-fetch'
 import { JSDOM } from 'jsdom'
 import TelegramBot from 'node-telegram-bot-api'
-import { writeFileSync } from 'fs'
+import { readFileSync, writeFileSync } from 'fs'
 import HttpsProxyAgentImport from 'https-proxy-agent'
 const { HttpsProxyAgent } = HttpsProxyAgentImport
 
@@ -32,7 +32,8 @@ type Raspberry = {
   available: boolean
 }
 
-const rapsberryListCache = new Map<string, Raspberry>()
+let isFirstInit = true
+const raspberryAvailableCache = new Map<string, Raspberry>()
 
 // Used to get the vendor id from the vendor name for the product link with query string filter
 // key=vendor.name, value=vendor.id
@@ -97,7 +98,7 @@ const parseHTMLGetRaspberryList = (document: Document): Raspberry[] => {
         price: trRows[7]!.textContent!.trim()
       }
       if (process.env.NODE_ENV === 'development' && raspberry.available) {
-        console.log('wtf available?', {
+        console.log('Available in current round', {
           sku: trRows[0]!.textContent!.trim(),
           description: trRows[1]!.textContent!.trim(),
           link: trRows[2]!.querySelector('a')?.href!,
@@ -117,71 +118,64 @@ const parseHTMLGetRaspberryList = (document: Document): Raspberry[] => {
 }
 
 const updateRapsberryCache = (document: Document) => {
-  const raspberryList = parseHTMLGetRaspberryList(document)
+  const _raspberryList = parseHTMLGetRaspberryList(document)
 
-  // Testing
+  // Mock data for testing
   if (process.env.NODE_ENV === 'test') {
-    const keys = [...rapsberryListCache.keys()]
-    if (debugRound === 1) {
-      raspberryList.find(x => getRaspberryKey(x) === keys[50])!.available = true
-    }
-    if (debugRound === 2) {
-      raspberryList.find(x => getRaspberryKey(x) === keys[50])!.available = false
-    }
+    const setAvailable = (index: number, status: boolean) => (_raspberryList[index].available = status)
+    if (debugRound === 0) setAvailable(50, false)
+    if (debugRound === 1) setAvailable(50, true)
+    if (debugRound === 2) setAvailable(50, false)
     if (debugRound === 3) {
-      raspberryList.find(x => getRaspberryKey(x) === keys[25])!.available = true
-      raspberryList.find(x => getRaspberryKey(x) === keys[50])!.available = true
+      setAvailable(25, true)
+      setAvailable(50, true)
     }
     if (debugRound === 4) {
-      raspberryList.find(x => getRaspberryKey(x) === keys[25])!.available = false
-      raspberryList.find(x => getRaspberryKey(x) === keys[50])!.available = true
+      setAvailable(25, false)
+      setAvailable(50, true)
     }
     if (debugRound === 5) {
-      raspberryList.find(x => getRaspberryKey(x) === keys[25])!.available = false
-      raspberryList.find(x => getRaspberryKey(x) === keys[50])!.available = false
+      setAvailable(25, false)
+      setAvailable(50, false)
     }
   }
 
-  let isFirstInit = rapsberryListCache.size === 0
-  const nowAvailableRaspberry: Map<string, Raspberry> = new Map()
-  const nowUnavailableRaspberry: Map<string, Raspberry> = new Map()
+  const raspberryList = _raspberryList.filter(x => x.available)
+  const raspberryAvailable = new Map() as typeof raspberryAvailableCache
+  raspberryList.forEach(raspberry => raspberryAvailable.set(getRaspberryKey(raspberry), raspberry))
+
   const raspberryListWithChanges = {
-    raspberryList,
-    nowAvailableRaspberry,
-    nowUnavailableRaspberry
+    nowAvailableRaspberry: new Map() as Map<string, Raspberry>,
+    nowUnavailableRaspberry: new Map() as Map<string, Raspberry>
   }
 
-  raspberryList.forEach(raspberry => {
-    const raspberryKey = getRaspberryKey(raspberry)
-    if (isFirstInit) {
-      rapsberryListCache.set(raspberryKey, raspberry)
-      // Do not notify on startup
-      // if (raspberry.available) nowAvailableRaspberryList.push(raspberry)
-      return
-    }
+  // Do not alert on startup, only fill the cache
+  if (isFirstInit) {
+    ;[...raspberryAvailable.entries()].forEach(([raspberryKey, raspberry]) =>
+      raspberryAvailableCache.set(raspberryKey, raspberry)
+    )
+    isFirstInit = false
+    return raspberryListWithChanges
+  }
 
-    const cachedRaspberry = rapsberryListCache.get(raspberryKey)
-
-    // New Raspberry listing appeared on rpilocator.com
-    if (!cachedRaspberry) {
-      rapsberryListCache.set(raspberryKey, raspberry)
-      if (raspberry.available) nowAvailableRaspberry.set(raspberryKey, raspberry)
-      return
-    }
-
-    // Alert if the raspberry is now available but was not before
-    if (raspberry.available && !cachedRaspberry.available) {
-      nowAvailableRaspberry.set(raspberryKey, raspberry)
-    }
-    // Alert if the raspberry is now unavailable but was before
-    if (!raspberry.available && cachedRaspberry.available) {
-      nowUnavailableRaspberry.set(raspberryKey, raspberry)
-    }
-
-    rapsberryListCache.set(raspberryKey, raspberry)
+  // Find the raspberrys that are available now but were not before
+  ;[...raspberryAvailable.entries()].forEach(([raspberryKey, raspberry]) => {
+    if (!raspberryAvailableCache.has(raspberryKey))
+      raspberryListWithChanges.nowAvailableRaspberry.set(raspberryKey, raspberry)
   })
 
-  if (isFirstInit) isFirstInit = false
+  // Find the raspberrys that are not available now but were before
+  ;[...raspberryAvailableCache.entries()]
+    .filter(([raspberryKey, raspberry]) => !raspberryAvailable.has(raspberryKey))
+    .forEach(([raspberryKey, raspberry]) =>
+      raspberryListWithChanges.nowUnavailableRaspberry.set(raspberryKey, raspberry)
+    )
+
+  // Update the raspberry cache
+  raspberryAvailableCache.clear()
+  ;[...raspberryAvailable.entries()].forEach(([raspberryKey, raspberry]) =>
+    raspberryAvailableCache.set(raspberryKey, raspberry)
+  )
 
   return raspberryListWithChanges
 }
@@ -276,8 +270,8 @@ const getTelegramMessage = (
 const sendTelegramAlert = async (raspberryListWithChanges: ReturnType<typeof updateRapsberryCache>) => {
   const nowAvailableRaspberryListLastStockMessagesKeys = []
   const message = getTelegramMessage(raspberryListWithChanges, nowAvailableRaspberryListLastStockMessagesKeys)
-  console.log(message)
   console.log(raspberryListWithChanges.nowAvailableRaspberry)
+  console.log(message)
 
   const sentMsg = await bot.sendMessage(TELEGRAM_CHAT_ID, message, { parse_mode: 'Markdown' })
 
@@ -314,7 +308,6 @@ const updateTelegramAlert = async (raspberryListWithChanges: ReturnType<typeof u
       lastMessageContent.raspberryAvailable.delete(raspberryKey)
       lastMessageContent.raspberryUnavailable.set(raspberryKey, raspberry)
       const raspberryAvailabilities = {
-        raspberryList: raspberryListWithChanges.raspberryList,
         nowAvailableRaspberry: lastMessageContent.raspberryAvailable,
         nowUnavailableRaspberry: lastMessageContent.raspberryUnavailable
       }
@@ -346,18 +339,18 @@ const checkStock = async () => {
     if (
       !documentTable ||
       !documentDoubleCheckTable ||
-      documentTable.innerHTML.replace(/\n/g, '') !== documentDoubleCheckTable.innerHTML.replace(/\n/g, '')
+      documentTable.innerHTML.replace(/\s/g, '') !== documentDoubleCheckTable.innerHTML.replace(/\s/g, '')
     ) {
       const timestamp = Date.now()
-      writeFileSync(`invalid-double-check-${timestamp}-1.html`, document.body.innerHTML.replace(/\n/g, ''))
-      writeFileSync(`invalid-double-check-${timestamp}-2.html`, documentDoubleCheck.body.innerHTML.replace(/\n/g, ''))
+      writeFileSync(`invalid-double-check-${timestamp}-1.html`, document.body.innerHTML.replace(/\s/g, ''))
+      writeFileSync(`invalid-double-check-${timestamp}-2.html`, documentDoubleCheck.body.innerHTML.replace(/\s/g, ''))
       console.error('Detected invalid data when double checking')
       return
     }
 
     updateVendorsCache(document)
     const raspberryListWithChanges = updateRapsberryCache(document)
-    console.log('nowAvailableRaspberry', raspberryListWithChanges.nowAvailableRaspberry)
+    // console.log('nowAvailableRaspberry', raspberryListWithChanges.nowAvailableRaspberry)
     // console.log(raspberryListWithChanges)
 
     if (raspberryListWithChanges.nowAvailableRaspberry.size > 0) {
@@ -384,7 +377,7 @@ const liveStockUpdate = async () => {
 
   let message = '🔴🤖 Live Raspberry Stock Update\n\n'
 
-  const available = [...new Set([...rapsberryListCache.values()])]
+  const available = [...new Set([...raspberryAvailableCache.values()])]
     .filter(x => x.available)
     .map(r => `✅ ${getRaspberryLink(r)}`)
   message += available.length > 0 ? available.join('\n') : '🤷‍♀️ Nothing available right now'
