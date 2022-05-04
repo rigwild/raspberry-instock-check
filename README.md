@@ -1,10 +1,20 @@
 # Raspberry instock check bot
 
-Get an alert on Telegram when there are Raspberry in stock ready to buy. This bot uses the website https://rpilocator.com/ to check for stock updates.
+Get an alert on Telegram when there are Raspberry in stock ready to buy. This bot uses [rpilocator](https://rpilocator.com/) to check for stock updates.
 
-Join the Telegram channel to get notifications: [@raspberry_alert](https://t.me/raspberry_alert/35)
+Join the public Telegram channel to get notifications! [@raspberry_alert](https://t.me/raspberry_alert/35)
+
+🌟 Star the project if we helped you get a Raspberry! 🙏
+
+## Features
+
+- Send an alert when a new Raspberry is in stock
 
 ![screenshot](./screenshot.png)
+
+- Live update a message with currently in stock Raspberry
+
+![screenshot live update](./screenshot-live.png)
 
 ## Install
 
@@ -20,8 +30,6 @@ pnpm build
 
 ## Run
 
-If omitted, `SEARCHED_RASPBERRY_MODELS` will watch all Raspberry models.
-
 ```sh
 TELEGRAM_TOKEN=<telegram_bot_token> \
 TELEGRAM_ADMIN_CHAT_ID=<telegram_chat_id_where_to_send_debug_info> \
@@ -33,7 +41,27 @@ PROXY=http://user:pass@123.123.123.123:51234 \
 pnpm start
 ```
 
-List of Raspberry models:
+| Environment variable                     | Required | Description                                                                                    |
+| ---------------------------------------- | :------: | ---------------------------------------------------------------------------------------------- |
+| `TELEGRAM_TOKEN`                         |    ✅    | Telegram bot token                                                                             |
+| `TELEGRAM_ADMIN_CHAT_ID`                 |    ✅    | Telegram chat id where to send error messages (can be the same as `TELEGRAM_CHAT_ID`)          |
+| `TELEGRAM_CHAT_ID`                       |    ✅    | Telegram chat id where to send stock alerts and update the live stock update message           |
+| `TELEGRAM_CURRENTLY_IN_STOCK_MESSAGE_ID` |          | Telegram message id to update with the current stock                                           |
+| `USE_DIRECT_PRODUCT_LINK`                |          | Should the products links be direct product links? (if `0`, will send rpilocator link)         |
+| `SEARCHED_RASPBERRY_MODELS`              |          | List of Raspberry models to look for, separated by a `,`. If omitted, will look for all models |
+| `PROXY`                                  |          | Proxy to use to fetch data from rpilocator                                                     |
+
+To get the `TELEGRAM_CURRENTLY_IN_STOCK_MESSAGE_ID`:
+
+- Right click on the message you want to be updated
+- copy message link and take the number at the end (message must be in the `TELEGRAM_CHAT_ID` channel).
+
+To get a Telegram chat id:
+
+- Use [@RawDataBot](https://stackoverflow.com/a/46247058)
+- If it's a public channel, use the public @: `TELEGRAM_CHAT_ID='@raspberry_alert'`
+
+## List of Raspberry models
 
 | Model (SKU)      | Description                            |
 | ---------------- | -------------------------------------- |
