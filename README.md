@@ -38,6 +38,7 @@ TELEGRAM_CURRENTLY_IN_STOCK_MESSAGE_ID=<telegram_message_id_to_live_update_curre
 USE_DIRECT_PRODUCT_LINK=1 \
 SEARCHED_RASPBERRY_MODELS=RPI4-MODBP-4GB,RPI4-MODBP-8GB \
 PROXY=http://user:pass@123.123.123.123:51234 \
+CHECK_INTERVAL=30000 \
 pnpm start
 ```
 
@@ -50,16 +51,43 @@ pnpm start
 | `USE_DIRECT_PRODUCT_LINK`                |          | Should the products links be direct product links? (if `0`, will send rpilocator link)         |
 | `SEARCHED_RASPBERRY_MODELS`              |          | List of Raspberry models to look for, separated by a `,`. If omitted, will look for all models |
 | `PROXY`                                  |          | Proxy to use to fetch data from rpilocator                                                     |
+| `CHECK_INTERVAL`                         |          | Check interval in ms, checking too often might get you rate-limited (default is `60000`)       |
 
 To get the `TELEGRAM_CURRENTLY_IN_STOCK_MESSAGE_ID`:
 
-- Right click on the message you want to be updated
-- copy message link and take the number at the end (message must be in the `TELEGRAM_CHAT_ID` channel).
+- Right click on the message you want to be updated (message must be in the `TELEGRAM_CHAT_ID` channel)
+- Copy message link
+- Take the number at the end
 
 To get a Telegram chat id:
 
 - Use [@RawDataBot](https://stackoverflow.com/a/46247058)
 - If it's a public channel, use the public @: `TELEGRAM_CHAT_ID='@raspberry_alert'`
+
+## Run with auto-restart
+
+Use [PM2](https://pm2.keymetrics.io/)
+
+```sh
+pnpm build
+TELEGRAM_TOKEN=<telegram_bot_token> <other variables> pm2 start dist/index.js
+```
+
+See logs
+
+```sh
+pm2 logs
+```
+
+Kill
+
+```sh
+pm2 delete all
+```
+
+## Test
+
+To simulate some alerts to see if it's working, set the environment variable `NODE_ENV=test`.
 
 ## List of Raspberry models
 
