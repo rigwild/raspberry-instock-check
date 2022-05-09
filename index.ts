@@ -2,7 +2,7 @@
 import fetch from 'node-fetch'
 import { JSDOM } from 'jsdom'
 import TelegramBot from 'node-telegram-bot-api'
-import { readFileSync, writeFileSync } from 'fs'
+import { readFileSync, writeFileSync, existsSync } from 'fs'
 import HttpsProxyAgentImport from 'https-proxy-agent'
 const { HttpsProxyAgent } = HttpsProxyAgentImport
 
@@ -67,7 +67,9 @@ const getHTML = async () => {
   let rawHTML: string
 
   if (process.env.NODE_ENV === 'test') {
-    rawHTML = readFileSync('../_mock_fetched_data_full.html', { encoding: 'utf-8' })
+    let mockFilePath = new URL('./_mock_fetched_data_full.html', import.meta.url)
+    if (!existsSync(mockFilePath)) mockFilePath = new URL('../_mock_fetched_data_full.html', mockFilePath)
+    rawHTML = readFileSync(mockFilePath, { encoding: 'utf-8' })
   } else {
     rawHTML = await fetch(`${STOCK_URI}?instock`, {
       headers: { 'User-Agent': 'raspberry_alert telegram bot' },
@@ -342,8 +344,13 @@ const checkStock = async () => {
       documentTable.innerHTML.replace(/\s/g, '') !== documentDoubleCheckTable.innerHTML.replace(/\s/g, '')
     ) {
       const timestamp = Date.now()
-      writeFileSync(`invalid-double-check-${timestamp}-1.html`, document.body.innerHTML.replace(/\s/g, ''))
-      writeFileSync(`invalid-double-check-${timestamp}-2.html`, documentDoubleCheck.body.innerHTML.replace(/\s/g, ''))
+      if (process.env.NODE_ENV === 'development') {
+        new URL(`invalid-double-check-${timestamp}-1.html`, import.meta.url)
+        const url1 = new URL(`invalid-double-check-${timestamp}-1.html`, import.meta.url)
+        const url2 = new URL(`invalid-double-check-${timestamp}-2.html`, import.meta.url)
+        writeFileSync(url1, document.body.innerHTML.replace(/\s/g, ''))
+        writeFileSync(url2, documentDoubleCheck.body.innerHTML.replace(/\s/g, ''))
+      }
       console.error('Detected invalid data when double checking')
       return
     }
@@ -365,9 +372,13 @@ const checkStock = async () => {
     }
   } catch (error) {
     console.error(error)
-    await bot.sendMessage(TELEGRAM_ADMIN_CHAT_ID, `❌ Error!\n${error.message}\n\`\`\`${error.stack}\`\`\``, {
-      parse_mode: 'Markdown'
-    })
+    await bot.sendMessage(
+      TELEGRAM_ADMIN_CHAT_ID,
+      `❌ Error!\n${error.message}\n\`\`\`${error.stack.slice(0, 2000)}\`\`\``,
+      {
+        parse_mode: 'Markdown'
+      }
+    )
   }
   debugRound++
 }
