@@ -338,14 +338,26 @@ const checkStock = async () => {
 
     const documentTable = document.body.querySelector('#prodTable')
     const documentDoubleCheckTable = documentDoubleCheck.body.querySelector('#prodTable')
-    if (
-      !documentTable ||
-      !documentDoubleCheckTable ||
-      documentTable.innerHTML.replace(/\s/g, '') !== documentDoubleCheckTable.innerHTML.replace(/\s/g, '')
-    ) {
+
+    // Check both requests were succesful
+    if ((documentTable && !documentDoubleCheckTable) || (!documentTable && documentDoubleCheckTable)) {
+      console.error('One of the double check requests failed')
+      return
+    }
+
+    // Both requests failed, log error
+    if (!documentTable && !documentDoubleCheckTable) {
+      const timestamp = Date.now()
+      const url = new URL(`invalid-both-requests-failed-${timestamp}.html`, import.meta.url)
+      writeFileSync(url, document.documentElement.outerHTML)
+      const html = document.documentElement.outerHTML.slice(0, 1000)
+      throw new Error(`Failed double check, both requests failed - HTML content:\n${html}`)
+    }
+
+    // Check both requests are indeed identical
+    if (documentTable?.innerHTML.replace(/\s/g, '') !== documentDoubleCheckTable?.innerHTML.replace(/\s/g, '')) {
       const timestamp = Date.now()
       if (process.env.NODE_ENV === 'development') {
-        new URL(`invalid-double-check-${timestamp}-1.html`, import.meta.url)
         const url1 = new URL(`invalid-double-check-${timestamp}-1.html`, import.meta.url)
         const url2 = new URL(`invalid-double-check-${timestamp}-2.html`, import.meta.url)
         writeFileSync(url1, document.body.innerHTML.replace(/\s/g, ''))
@@ -372,13 +384,9 @@ const checkStock = async () => {
     }
   } catch (error) {
     console.error(error)
-    await bot.sendMessage(
-      TELEGRAM_ADMIN_CHAT_ID,
-      `❌ Error!\n${error.message}\n\`\`\`${error.stack.slice(0, 2000)}\`\`\``,
-      {
-        parse_mode: 'Markdown'
-      }
-    )
+    await bot.sendMessage(TELEGRAM_ADMIN_CHAT_ID, `❌ Error!\n\`\`\`${error.stack.slice(0, 2000)}\`\`\``, {
+      parse_mode: 'Markdown'
+    })
   }
   debugRound++
 }
