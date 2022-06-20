@@ -42,16 +42,17 @@ CHECK_INTERVAL=30000 \
 pnpm start
 ```
 
-| Environment variable                     | Required | Description                                                                                    |
-| ---------------------------------------- | :------: | ---------------------------------------------------------------------------------------------- |
-| `TELEGRAM_TOKEN`                         |    ✅    | Telegram bot token                                                                             |
-| `TELEGRAM_ADMIN_CHAT_ID`                 |    ✅    | Telegram chat id where to send error messages (can be the same as `TELEGRAM_CHAT_ID`)          |
-| `TELEGRAM_CHAT_ID`                       |    ✅    | Telegram chat id where to send stock alerts and update the live stock update message           |
-| `TELEGRAM_CURRENTLY_IN_STOCK_MESSAGE_ID` |          | Telegram message id to update with the current stock                                           |
-| `USE_DIRECT_PRODUCT_LINK`                |          | Should the products links be direct product links? (if `0`, will send rpilocator link)         |
-| `SEARCHED_RASPBERRY_MODELS`              |          | List of Raspberry models to look for, separated by a `,`. If omitted, will look for all models |
-| `PROXY`                                  |          | Proxy to use to fetch data from rpilocator                                                     |
-| `CHECK_INTERVAL`                         |          | Check interval in ms, checking too often might get you rate-limited (default is `60000`)       |
+| Environment variable                     | Required | Description                                                                                        |
+| ---------------------------------------- | :------: | -------------------------------------------------------------------------------------------------- |
+| `TELEGRAM_TOKEN`                         |    ✅    | Telegram bot token                                                                                 |
+| `TELEGRAM_ADMIN_CHAT_ID`                 |    ✅    | Telegram chat id where to send error messages (can be the same as `TELEGRAM_CHAT_ID`)              |
+| `TELEGRAM_CHAT_ID`                       |    ✅    | Telegram chat id where to send stock alerts and update the live stock update message               |
+| `TELEGRAM_CURRENTLY_IN_STOCK_MESSAGE_ID` |          | Telegram message id to update with the current stock                                               |
+| `USE_DIRECT_PRODUCT_LINK`                |          | Should the products links be direct product links? (if `0`, will send rpilocator link)             |
+| `USE_CACHED_REQUEST`                     |          | Load data from file system instead of sending requests (use if you have one other checker running) |
+| `SEARCHED_RASPBERRY_MODELS`              |          | List of Raspberry models to look for, separated by a `,`. If omitted, will look for all models     |
+| `PROXY`                                  |          | Proxy to use to fetch data from rpilocator                                                         |
+| `CHECK_INTERVAL`                         |          | Check interval in ms, checking too often might get you rate-limited (default is `60000`)           |
 
 To get the `TELEGRAM_CURRENTLY_IN_STOCK_MESSAGE_ID`:
 

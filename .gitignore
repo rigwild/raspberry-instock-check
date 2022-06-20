@@ -4,3 +4,4 @@ run.dev.sh
 run.test.sh
 run_*
 dist
+_cached_request.html

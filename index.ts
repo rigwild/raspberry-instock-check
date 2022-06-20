@@ -19,6 +19,7 @@ const TELEGRAM_LIVE_STOCK_UPDATE_MESSAGE_ID = process.env.TELEGRAM_LIVE_STOCK_UP
   : undefined
 const TELEGRAM_ADMIN_CHAT_ID = process.env.TELEGRAM_ADMIN_CHAT_ID!
 const USE_DIRECT_PRODUCT_LINK = process.env.USE_DIRECT_PRODUCT_LINK === '1'
+const USE_CACHED_REQUEST = process.env.USE_CACHED_REQUEST === '1'
 
 const PROXY = process.env.PROXY
 
@@ -66,10 +67,17 @@ bot.sendMessage(
 const getHTML = async () => {
   let rawHTML: string
 
-  if (process.env.NODE_ENV === 'test') {
-    let mockFilePath = new URL('./_mock_fetched_data_full.html', import.meta.url)
-    if (!existsSync(mockFilePath)) mockFilePath = new URL('../_mock_fetched_data_full.html', mockFilePath)
-    rawHTML = readFileSync(mockFilePath, { encoding: 'utf-8' })
+  if (process.env.NODE_ENV === 'test' || USE_CACHED_REQUEST) {
+    // Load from file system cache instead of fetching from rpilocator
+    let fileName = '_mock_fetched_data_full.html'
+    if (USE_CACHED_REQUEST) fileName = './_cached_request.html'
+
+    let filePath = new URL(fileName, import.meta.url)
+    if (!existsSync(filePath)) filePath = new URL(`../${fileName}`, filePath)
+    if (!existsSync(filePath))
+      throw new Error('Cached request file not found! Start your other checker instance first!')
+
+    rawHTML = readFileSync(filePath, { encoding: 'utf-8' })
   } else {
     rawHTML = await fetch(`${STOCK_URI}?instock`, {
       headers: { 'User-Agent': 'raspberry_alert telegram bot' },
@@ -187,7 +195,7 @@ const updateVendorsCache = (document: Document) => {
     .map(x => {
       const [country, ...vendorName] = x.textContent!.trim().split(' ')
       return {
-        id: x.getAttribute('data-vendor'),
+        id: x.getAttribute('data-vendor')!,
         name: `${vendorName.join(' ')} ${country}`.trim()
       }
     })
@@ -201,7 +209,7 @@ const getRaspberryLink = (r: Raspberry) => {
   if (USE_DIRECT_PRODUCT_LINK) itemLink = r.link
   else {
     itemLink = STOCK_URI
-    if (vendorsCache.has(r.vendor)) urlQueries.push(['vendor', vendorsCache.get(r.vendor)])
+    if (vendorsCache.has(r.vendor)) urlQueries.push(['vendor', vendorsCache.get(r.vendor)!])
   }
   urlQueries.push(['utm_source', 'telegram'])
   urlQueries.push(['utm_medium', 'rapsberry_alert'])
@@ -305,8 +313,8 @@ const updateTelegramAlert = async (raspberryListWithChanges: ReturnType<typeof u
     const raspberryKey = getRaspberryKey(raspberry)
     if (lastStockMessagesIds.has(raspberryKey)) {
       console.log(`Now unavailable: ${raspberryKey}`)
-      const message_id = lastStockMessagesIds.get(raspberryKey)
-      const lastMessageContent = lastStockMessagesContent.get(message_id)
+      const message_id = lastStockMessagesIds.get(raspberryKey)!
+      const lastMessageContent = lastStockMessagesContent.get(message_id)!
       lastMessageContent.raspberryAvailable.delete(raspberryKey)
       lastMessageContent.raspberryUnavailable.set(raspberryKey, raspberry)
       const raspberryAvailabilities = {
@@ -360,12 +368,15 @@ const checkStock = async () => {
       if (process.env.NODE_ENV === 'development') {
         const url1 = new URL(`invalid-double-check-${timestamp}-1.html`, import.meta.url)
         const url2 = new URL(`invalid-double-check-${timestamp}-2.html`, import.meta.url)
-        writeFileSync(url1, document.body.innerHTML.replace(/\s/g, ''))
+        writeFileSync(url1, document.documentElement.outerHTML.replace(/\s/g, ''))
         writeFileSync(url2, documentDoubleCheck.body.innerHTML.replace(/\s/g, ''))
       }
       console.error('Detected invalid data when double checking')
       return
     }
+
+    // Valid request, cache it on file system for potential other checker instances
+    writeFileSync('../_cached_request.html', document.documentElement.outerHTML)
 
     updateVendorsCache(document)
     const raspberryListWithChanges = updateRapsberryCache(document)
@@ -375,7 +386,7 @@ const checkStock = async () => {
     if (raspberryListWithChanges.nowAvailableRaspberry.size > 0) {
       await sendTelegramAlert(raspberryListWithChanges)
       if (process.env.NODE_ENV === 'development')
-        writeFileSync(`now-available-${Date.now()}.html`, document.body.innerHTML)
+        writeFileSync(`now-available-${Date.now()}.html`, document.documentElement.outerHTML)
     } else {
       console.log('Not in stock!')
     }
