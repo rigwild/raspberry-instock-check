@@ -334,7 +334,6 @@ const updateTelegramAlert = async (raspberryListWithChanges: ReturnType<typeof u
 
 const checkStock = async () => {
   if (process.env.NODE_ENV === 'development') console.log(debugRound)
-  console.log('raspberryAvailableCache', raspberryAvailableCache.values())
 
   try {
     console.log('Checking stock...')
@@ -383,21 +382,23 @@ const checkStock = async () => {
     // console.log(raspberryListWithChanges)
 
     // Cache it on file system for other checker instances and API endpoint
-    writeFileSync(new URL('../_cached_request.html', import.meta.url), document.documentElement.outerHTML)
-    const apiData = {
-      lastUpdate: new Date(),
-      data: [...raspberryAvailableCache.values()].map(r => {
-        const priceValueRaw = r.price.split(' ')?.[1]
-        const priceValue = priceValueRaw ? +priceValueRaw : null
-        return {
-          ...r,
-          lastStockISO: new Date(r.lastStock).toLocaleDateString('en-CA'),
-          priceCurrency: r.price.match(/\((.*?)\)/)?.[1] || null,
-          priceValue
-        }
-      })
+    if (!USE_CACHED_REQUEST) {
+      writeFileSync(new URL('../_cached_request.html', import.meta.url), document.documentElement.outerHTML)
+      const apiData = {
+        lastUpdate: new Date(),
+        data: [...raspberryAvailableCache.values()].map(r => {
+          const priceValueRaw = r.price.split(' ')?.[1]
+          const priceValue = priceValueRaw ? +priceValueRaw : null
+          return {
+            ...r,
+            lastStockISO: new Date(r.lastStock).toLocaleDateString('en-CA'),
+            priceCurrency: r.price.match(/\((.*?)\)/)?.[1] || null,
+            priceValue
+          }
+        })
+      }
+      writeFileSync(new URL('../_cached_request_data.json', import.meta.url), JSON.stringify(apiData, null, 2))
     }
-    writeFileSync(new URL('../_cached_request_data.json', import.meta.url), JSON.stringify(apiData, null, 2))
 
     if (raspberryListWithChanges.nowAvailableRaspberry.size > 0) {
       await sendTelegramAlert(raspberryListWithChanges)
