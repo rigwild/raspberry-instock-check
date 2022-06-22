@@ -4,6 +4,8 @@ Get an alert on Telegram when there are Raspberry in stock ready to buy. This bo
 
 Join the public Telegram channel to get notifications! [@raspberry_alert](https://t.me/raspberry_alert/35)
 
+We also mirror the content of the [rpilocator](https://rpilocator.com/) website on this public API endpoint: [raspberry.rigwild.dev](https://raspberry.rigwild.dev)
+
 🌟 Star the project if we helped you get a Raspberry! 🙏
 
 ## Features
@@ -15,6 +17,8 @@ Join the public Telegram channel to get notifications! [@raspberry_alert](https:
 - Live update a message with currently in stock Raspberry
 
 ![screenshot live update](./screenshot-live.png)
+
+- API showing current rpilocator stock
 
 ## Install
 
@@ -53,6 +57,9 @@ pnpm start
 | `SEARCHED_RASPBERRY_MODELS`              |          | List of Raspberry models to look for, separated by a `,`. If omitted, will look for all models     |
 | `PROXY`                                  |          | Proxy to use to fetch data from rpilocator                                                         |
 | `CHECK_INTERVAL`                         |          | Check interval in ms, checking too often might get you rate-limited (default is `60000`)           |
+| `API_RUN`                                |          | Start the API server                                                                               |
+| `API_PORT`                               |          | API server port                                                                                    |
+| `API_TRUST_PROXY`                        |          | Enable if server is ran behind a reverse proxy, for the rate limit                                 |
 
 To get the `TELEGRAM_CURRENTLY_IN_STOCK_MESSAGE_ID`:
 
