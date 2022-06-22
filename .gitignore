@@ -5,3 +5,4 @@ run.test.sh
 run_*
 dist
 _cached_request.html
+_cached_request_data.json

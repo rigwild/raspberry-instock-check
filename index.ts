@@ -1,10 +1,10 @@
-// @ts-check
 import fetch from 'node-fetch'
 import { JSDOM } from 'jsdom'
 import TelegramBot from 'node-telegram-bot-api'
 import { readFileSync, writeFileSync, existsSync } from 'fs'
 import HttpsProxyAgentImport from 'https-proxy-agent'
 const { HttpsProxyAgent } = HttpsProxyAgentImport
+import { startServer } from './server.js'
 
 const STOCK_URI = 'https://rpilocator.com/'
 const SEARCHED_RASPBERRY_MODELS = process.env.SEARCHED_RASPBERRY_MODELS
@@ -20,6 +20,7 @@ const TELEGRAM_LIVE_STOCK_UPDATE_MESSAGE_ID = process.env.TELEGRAM_LIVE_STOCK_UP
 const TELEGRAM_ADMIN_CHAT_ID = process.env.TELEGRAM_ADMIN_CHAT_ID!
 const USE_DIRECT_PRODUCT_LINK = process.env.USE_DIRECT_PRODUCT_LINK === '1'
 const USE_CACHED_REQUEST = process.env.USE_CACHED_REQUEST === '1'
+const API_RUN = process.env.API_RUN === '1'
 
 const PROXY = process.env.PROXY
 
@@ -333,6 +334,7 @@ const updateTelegramAlert = async (raspberryListWithChanges: ReturnType<typeof u
 
 const checkStock = async () => {
   if (process.env.NODE_ENV === 'development') console.log(debugRound)
+  console.log('raspberryAvailableCache', raspberryAvailableCache.values())
 
   try {
     console.log('Checking stock...')
@@ -375,13 +377,27 @@ const checkStock = async () => {
       return
     }
 
-    // Valid request, cache it on file system for potential other checker instances
-    writeFileSync('../_cached_request.html', document.documentElement.outerHTML)
-
     updateVendorsCache(document)
     const raspberryListWithChanges = updateRapsberryCache(document)
     // console.log('nowAvailableRaspberry', raspberryListWithChanges.nowAvailableRaspberry)
     // console.log(raspberryListWithChanges)
+
+    // Cache it on file system for other checker instances and API endpoint
+    writeFileSync(new URL('../_cached_request.html', import.meta.url), document.documentElement.outerHTML)
+    const apiData = {
+      lastUpdate: new Date(),
+      data: [...raspberryAvailableCache.values()].map(r => {
+        const priceValueRaw = r.price.split(' ')?.[1]
+        const priceValue = priceValueRaw ? +priceValueRaw : null
+        return {
+          ...r,
+          lastStockISO: new Date(r.lastStock).toLocaleDateString('en-CA'),
+          priceCurrency: r.price.match(/\((.*?)\)/)?.[1] || null,
+          priceValue
+        }
+      })
+    }
+    writeFileSync(new URL('../_cached_request_data.json', import.meta.url), JSON.stringify(apiData, null, 2))
 
     if (raspberryListWithChanges.nowAvailableRaspberry.size > 0) {
       await sendTelegramAlert(raspberryListWithChanges)
@@ -429,4 +445,5 @@ checkStock().finally(() => {
   liveStockUpdate()
   setInterval(checkStock, CHECK_INTERVAL + Math.random() * 3000)
   setInterval(liveStockUpdate, process.env.NODE_ENV === 'test' ? 2000 : 10_000)
+  if (API_RUN) startServer()
 })
