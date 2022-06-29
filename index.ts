@@ -110,7 +110,7 @@ const getRaspberryList = async (): Promise<RaspberryRpilocatorModel[]> => {
   if (process.env.NODE_ENV === 'test' || USE_CACHED_REQUEST) {
     // Load from file system cache instead of fetching from rpilocator
     let fileName = '_mock_fetched_data_full.json'
-    if (USE_CACHED_REQUEST) fileName = './_cached_request.json'
+    if (USE_CACHED_REQUEST) fileName = './_cached_request_data.json'
 
     let filePath = new URL(fileName, import.meta.url)
     if (!existsSync(filePath)) filePath = new URL(`../${fileName}`, filePath)
@@ -175,34 +175,48 @@ const updateRapsberryCache = (raspberryList: Raspberry[]) => {
 
   // Mock data for testing
   if (process.env.NODE_ENV === 'test') {
-    const setAvailable = (index: number, status: boolean) => (_raspberryList[index].available = status)
-    if (debugRound === 0) setAvailable(50, false)
-    if (debugRound === 1) setAvailable(50, true)
-    if (debugRound === 2) setAvailable(50, false)
+    const mock1 = {
+      sku: 'RPI4-MODBP-4GB',
+      description: 'RPi 4 Model B - 4GB RAM',
+      vendor: 'electro:kit (SE)',
+      price: { display: '719.00 SEK' }
+    }
+    const mock2 = {
+      sku: 'CM4104000',
+      description: 'RPi CM4 - 4GB RAM, No MMC, With Wifi',
+      vendor: 'Welectron (DE)',
+      price: { display: '64.90 EUR' }
+    }
+    if (debugRound === 1) {
+      raspberryList.push(mock1 as any)
+      // raspberryList.push(mock2 as any)
+    }
+    if (debugRound === 2) {
+      // raspberryList.push(mock1 as any)
+      // raspberryList.push(mock2 as any)
+    }
     if (debugRound === 3) {
-      setAvailable(25, true)
-      setAvailable(50, true)
+      raspberryList.push(mock1 as any)
+      raspberryList.push(mock2 as any)
     }
     if (debugRound === 4) {
-      setAvailable(25, false)
-      setAvailable(50, true)
+      // raspberryList.push(mock1 as any)
+      raspberryList.push(mock2 as any)
     }
     if (debugRound === 5) {
-      setAvailable(25, false)
-      setAvailable(50, false)
+      // raspberryList.push(mock1 as any)
+      // raspberryList.push(mock2 as any)
     }
   }
-
-  const raspberryList = _raspberryList.filter(x => x.available)
   const raspberryAvailable = new Map() as typeof raspberryAvailableCache
   raspberryList.forEach(raspberry => raspberryAvailable.set(getRaspberryKey(raspberry), raspberry))
 
   const raspberryListWithChanges = {
-    nowAvailableRaspberry: new Map() as Map<string, Raspberry>,
-    nowUnavailableRaspberry: new Map() as Map<string, Raspberry>
+    nowAvailableRaspberry: new Map<string, Raspberry>(),
+    nowUnavailableRaspberry: new Map<string, Raspberry>()
   }
 
-  // Do not alert on startup, only fill the cache
+  // Do not alert on first lauch (startup), only fill the cache
   if (isFirstInit) {
     ;[...raspberryAvailable.entries()].forEach(([raspberryKey, raspberry]) =>
       raspberryAvailableCache.set(raspberryKey, raspberry)
@@ -350,7 +364,6 @@ const checkStock = async () => {
 
     const raspberryListRpilocatorModel = await getRaspberryList()
     const raspberryList = raspberryListRpilocatorModel.map(rpilocatorApiModelMap)
-    console.log(raspberryList)
 
     const raspberryListWithChanges = updateRapsberryCache(raspberryList)
 
