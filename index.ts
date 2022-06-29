@@ -1,12 +1,10 @@
 import fetch from 'node-fetch'
-import { JSDOM } from 'jsdom'
 import TelegramBot from 'node-telegram-bot-api'
 import { readFileSync, writeFileSync, existsSync } from 'fs'
 import HttpsProxyAgentImport from 'https-proxy-agent'
 const { HttpsProxyAgent } = HttpsProxyAgentImport
 import { startServer } from './server.js'
 
-const STOCK_URI = 'https://rpilocator.com/'
 const SEARCHED_RASPBERRY_MODELS = process.env.SEARCHED_RASPBERRY_MODELS
   ? process.env.SEARCHED_RASPBERRY_MODELS.trim().toLowerCase().split(',')
   : ['*']
@@ -28,18 +26,24 @@ type Raspberry = {
   sku: string
   description: string
   vendor: string
-  price: string
+  price: { value: number; display: string; currency: string }
   link: string
   lastStock: string
   available: boolean
 }
+type RaspberryRpilocatorModel = {
+  update_t: { sort: number; display: string }
+  price: { sort: number; display: string; currency: string }
+  vendor: string
+  sku: string
+  avail: string
+  link: string
+  last_stock: { sort: string; display: string }
+  description: string
+}
 
 let isFirstInit = true
 const raspberryAvailableCache = new Map<string, Raspberry>()
-
-// Used to get the vendor id from the vendor name for the product link with query string filter
-// key=vendor.name, value=vendor.id
-const vendorsCache = new Map<string, string>()
 
 // Save the sent messages to udpate them when becomes unavailable
 type StockMessageContent = {
@@ -49,6 +53,43 @@ type StockMessageContent = {
 }
 const lastStockMessagesIds = new Map<string, number>()
 const lastStockMessagesContent = new Map<number, StockMessageContent>()
+
+const vendors = {
+  'Semaf (AT)': 'semaf',
+  'MC Hobby (BE)': 'mchobby',
+  'Pishop (CA)': 'pishopca',
+  'Pi-Shop (CH)': 'pishopch',
+  'Seeedstudio (CN)': 'seeedstudio',
+  'BerryBase (DE)': 'berrybase',
+  'Rasppishop (DE)': 'rasppishop',
+  'Welectron (DE)': 'welectron',
+  'pi3g (DE)': 'pi3g',
+  'Kubii (FR)': 'kubii',
+  'Melopero (IT)': 'melopero',
+  'Switch Science (JP)': 'switchjp',
+  'Elektor (NL)': 'elektor',
+  'OKDO (NL)': 'okdonl',
+  'RaspberryStore (NL)': 'raspberrystore',
+  'Botland (PL)': 'botland',
+  'Robert Mauser (PT)': 'mauserpt',
+  'electro:kit (SE)': 'electrokit',
+  'Cool Components (UK)': 'coolcomp',
+  'Farnell (UK)': 'farnell',
+  'OKDO (UK)': 'okdouk',
+  'Pimoroni (UK)': 'pimoroni',
+  'Rapid (UK)': 'rapid',
+  'SB Components (UK)': 'sbcomp',
+  'The Pihut (UK)': 'thepihut',
+  'Adafruit (US)': 'adafruit',
+  'Chicago Elec. Dist. (US)': 'chicagodist',
+  'Digi-Key (US)': 'digikeyus',
+  'Newark (US)': 'newark',
+  'OKDO (US)': 'okdous',
+  'Pishop (US)': 'pishopus',
+  'Sparkfun (US)': 'sparkfun',
+  'Vilros (US)': 'vilros',
+  'PiShop (ZA)': 'pishopza'
+}
 
 let debugRound = 0
 
@@ -65,71 +106,72 @@ bot.sendMessage(
 )
 // .then(res => console.log(res.message_id))
 
-const getHTML = async () => {
-  let rawHTML: string
-
+const getRaspberryList = async (): Promise<RaspberryRpilocatorModel[]> => {
   if (process.env.NODE_ENV === 'test' || USE_CACHED_REQUEST) {
     // Load from file system cache instead of fetching from rpilocator
-    let fileName = '_mock_fetched_data_full.html'
-    if (USE_CACHED_REQUEST) fileName = './_cached_request.html'
+    let fileName = '_mock_fetched_data_full.json'
+    if (USE_CACHED_REQUEST) fileName = './_cached_request.json'
 
     let filePath = new URL(fileName, import.meta.url)
     if (!existsSync(filePath)) filePath = new URL(`../${fileName}`, filePath)
     if (!existsSync(filePath))
       throw new Error('Cached request file not found! Start your other checker instance first!')
 
-    rawHTML = readFileSync(filePath, { encoding: 'utf-8' })
-  } else {
-    rawHTML = await fetch(`${STOCK_URI}?instock`, {
-      headers: { 'User-Agent': 'raspberry_alert telegram bot' },
+    return JSON.parse(readFileSync(filePath, { encoding: 'utf-8' })).dataOriginalFromRpilocatorApi
+  }
+
+  // Extract API token
+  const reqHome = await fetch('https://rpilocator.com/', {
+    headers: {
+      accept:
+        'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
+      'User-Agent': 'raspberry_alert telegram bot'
+    },
+    agent: PROXY ? new HttpsProxyAgent(PROXY) : undefined
+  })
+  const cookies = reqHome.headers.raw()['set-cookie'].map(x => x.split(';')[0])
+  const homeHTML = await reqHome.text()
+  const apiToken = homeHTML.match(/localToken="(.*?)"/)?.[1]
+  if (!apiToken) throw new Error('API token not found!')
+
+  // Fetch data
+  const reqData = await fetch(
+    `https://rpilocator.com/data.cfm?method=getProductTable&instock&token=${apiToken}&&_=${Date.now()}`,
+    {
+      headers: {
+        accept: 'application/json, text/javascript, */*; q=0.01',
+        'x-requested-with': 'XMLHttpRequest',
+        'User-Agent': 'raspberry_alert telegram bot',
+        cookie: cookies.join('; ')
+      },
       agent: PROXY ? new HttpsProxyAgent(PROXY) : undefined
-    }).then(res => res.text())
-  }
+    }
+  )
+  if (!reqData.ok)
+    throw new Error(`Failed to fetch API data! - Status ${reqData.status}\n${(await reqData.text()).slice(0, 2000)}`)
 
-  if (process.env.NODE_ENV === 'development' && debugRound === 2) {
-    // rawHTML = readFileSync('1650901732509.html', 'utf8')
-  }
-
-  const dom = new JSDOM(rawHTML)
-  return dom.window.document
+  return ((await reqData.json()) as any).data as RaspberryRpilocatorModel[]
 }
 
-const parseHTMLGetRaspberryList = (document: Document): Raspberry[] => {
-  const raspberryList: Raspberry[] = [...document.querySelectorAll('tr')]
-    .slice(1)
-    .map(x => [x.querySelector('th'), ...x.querySelectorAll('td')])
-    .map(trRows => {
-      const raspberry: Raspberry = {
-        sku: trRows[0]!.textContent!.trim(),
-        description: trRows[1]!.textContent!.trim(),
-        link: trRows[2]!.querySelector('a')?.href!,
-        vendor: trRows[4]!.textContent!.trim(),
-        available: trRows[5]!.textContent!.trim().toLowerCase() === 'yes',
-        lastStock: trRows[6]!.textContent!.trim(),
-        price: trRows[7]!.textContent!.trim()
-      }
-      if (process.env.NODE_ENV === 'development' && raspberry.available) {
-        console.log('Available in current round', {
-          sku: trRows[0]!.textContent!.trim(),
-          description: trRows[1]!.textContent!.trim(),
-          link: trRows[2]!.querySelector('a')?.href!,
-          vendor: trRows[4]!.textContent!.trim(),
-          available: trRows[5]!.textContent!.trim(),
-          lastStock: trRows[6]!.textContent!.trim(),
-          price: trRows[7]!.textContent!.trim()
-        })
-      }
-      return raspberry
-    })
-  return SEARCHED_RASPBERRY_MODELS?.[0] === '*'
-    ? raspberryList
-    : raspberryList.filter(
-        r => r.available && SEARCHED_RASPBERRY_MODELS.some(model => r.sku.toLowerCase().startsWith(model))
-      )
+const rpilocatorApiModelMap = (raspberry: RaspberryRpilocatorModel): Raspberry => {
+  const { update_t, price, vendor, sku, avail, link, last_stock, description } = raspberry
+  return {
+    sku,
+    description,
+    vendor,
+    price: { value: price.sort, currency: price.currency, display: `${price.sort.toFixed(2)} ${price.currency}` },
+    link,
+    lastStock: last_stock.sort,
+    available: avail === 'Yes'
+  }
 }
 
-const updateRapsberryCache = (document: Document) => {
-  const _raspberryList = parseHTMLGetRaspberryList(document)
+const updateRapsberryCache = (raspberryList: Raspberry[]) => {
+  raspberryList = raspberryList.filter(r => r.available)
+  if (SEARCHED_RASPBERRY_MODELS?.[0] !== '*')
+    raspberryList = raspberryList.filter(r =>
+      SEARCHED_RASPBERRY_MODELS.some(model => r.sku.toLowerCase().startsWith(model))
+    )
 
   // Mock data for testing
   if (process.env.NODE_ENV === 'test') {
@@ -191,56 +233,24 @@ const updateRapsberryCache = (document: Document) => {
   return raspberryListWithChanges
 }
 
-const updateVendorsCache = (document: Document) => {
-  ;[...document.querySelectorAll('a[data-vendor]')]
-    .map(x => {
-      const [country, ...vendorName] = x.textContent!.trim().split(' ')
-      return {
-        id: x.getAttribute('data-vendor')!,
-        name: `${vendorName.join(' ')} ${country}`.trim()
-      }
-    })
-    .forEach(({ id, name }) => vendorsCache.set(name, id))
-  vendorsCache.delete('All')
-}
-
 const getRaspberryLink = (r: Raspberry) => {
-  let itemLink: string
-  let urlQueries: Array<[string, string]> = []
-  if (USE_DIRECT_PRODUCT_LINK) itemLink = r.link
-  else {
-    itemLink = STOCK_URI
-    if (vendorsCache.has(r.vendor)) urlQueries.push(['vendor', vendorsCache.get(r.vendor)!])
+  let itemLink = r.link
+  if (!USE_DIRECT_PRODUCT_LINK) {
+    itemLink = `https://rpilocator.com/?utm_source=telegram&utm_medium=rapsberry_alert`
+    if (vendors[r.vendor]) itemLink += `&vendor=${vendors[r.vendor]}`
   }
-  urlQueries.push(['utm_source', 'telegram'])
-  urlQueries.push(['utm_medium', 'rapsberry_alert'])
-  itemLink += '?' + urlQueries.map(([k, v]) => `${k}=${v}`).join('&')
-  return `[${r.description} | ${r.vendor} | ${r.price}](${itemLink})`
+  return `[${r.description} | ${r.vendor} | ${r.price.display}](${itemLink})`
 }
 
-const getRaspberryKey = (r: Raspberry) => `${r.sku}-${r.vendor}-${r.price}`
+const getRaspberryKey = (r: Raspberry) => `${r.sku}-${r.vendor}-${r.price.display}`
 
 const twoDigits = (serializable: any) => serializable.toString().padStart(2, '0')
 
-/**
- * Transform a date object to a human-readable date format
- * `2019-12-31`
- * @param date Date to format
- * @returns formated date
- * @see https://gist.github.com/rigwild/bf712322eac2244096468985ee4a5aae
- */
-export const toHumanDate = (date: Date) =>
-  `${date.getFullYear()}-${twoDigits(date.getMonth() + 1)}-${twoDigits(date.getDate())}`
-
-/**
- * Transform a date object to a human-readable datetime format
- * `2019-12-31 - 24:60:60`
- * @param date Date to format
- * @returns formated datetime
- * @see https://gist.github.com/rigwild/bf712322eac2244096468985ee4a5aae
- */
+/** @see https://gist.github.com/rigwild/bf712322eac2244096468985ee4a5aae */
 export const toHumanDateTime = (date: Date) =>
-  `${toHumanDate(date)} - ${twoDigits(date.getHours())}:${twoDigits(date.getMinutes())}`
+  `${date.getFullYear()}-${twoDigits(date.getMonth() + 1)}-${twoDigits(date.getDate())} - ${twoDigits(
+    date.getHours()
+  )}:${twoDigits(date.getMinutes())}`
 
 const getTelegramMessage = (
   raspberryAvailabilities: ReturnType<typeof updateRapsberryCache>,
@@ -274,7 +284,7 @@ const getTelegramMessage = (
   // message += [...links].join('\n')
 
   message += '\n\n🌟 Star our [GitHub](https://github.com/rigwild/raspberry-instock-check)'
-  message += `\n🌐 Stock data from [rpilocator](${STOCK_URI}?utm_source=telegram&utm_medium=rapsberry_alert)`
+  message += `\n🌐 Stock data from [rpilocator](https://rpilocator.com/?utm_source=telegram&utm_medium=rapsberry_alert)`
   return message
 }
 
@@ -338,72 +348,32 @@ const checkStock = async () => {
   try {
     console.log('Checking stock...')
 
-    // Do the request 2 times with a bit of delay and check the result is the same
-    // Sometimes rpilocator returns invalid data (race condition when updating on their side)
-    const [document, documentDoubleCheck] = await Promise.all([
-      getHTML(),
-      new Promise(resolve => setTimeout(() => resolve(getHTML()), 1000)) as Promise<Document>
-    ])
+    const raspberryListRpilocatorModel = await getRaspberryList()
+    const raspberryList = raspberryListRpilocatorModel.map(rpilocatorApiModelMap)
+    console.log(raspberryList)
 
-    const documentTable = document.body.querySelector('#prodTable')
-    const documentDoubleCheckTable = documentDoubleCheck.body.querySelector('#prodTable')
-
-    // Check both requests were succesful
-    if ((documentTable && !documentDoubleCheckTable) || (!documentTable && documentDoubleCheckTable)) {
-      console.error('One of the double check requests failed')
-      return
-    }
-
-    // Both requests failed, log error
-    if (!documentTable && !documentDoubleCheckTable) {
-      const timestamp = Date.now()
-      const url = new URL(`invalid-both-requests-failed-${timestamp}.html`, import.meta.url)
-      writeFileSync(url, document.documentElement.outerHTML)
-      const html = document.documentElement.outerHTML.slice(0, 1000)
-      throw new Error(`Failed double check, both requests failed - HTML content:\n${html}`)
-    }
-
-    // Check both requests are indeed identical
-    if (documentTable?.innerHTML.replace(/\s/g, '') !== documentDoubleCheckTable?.innerHTML.replace(/\s/g, '')) {
-      const timestamp = Date.now()
-      if (process.env.NODE_ENV === 'development') {
-        const url1 = new URL(`invalid-double-check-${timestamp}-1.html`, import.meta.url)
-        const url2 = new URL(`invalid-double-check-${timestamp}-2.html`, import.meta.url)
-        writeFileSync(url1, document.documentElement.outerHTML.replace(/\s/g, ''))
-        writeFileSync(url2, documentDoubleCheck.body.innerHTML.replace(/\s/g, ''))
-      }
-      console.error('Detected invalid data when double checking')
-      return
-    }
-
-    updateVendorsCache(document)
-    const raspberryListWithChanges = updateRapsberryCache(document)
-    // console.log('nowAvailableRaspberry', raspberryListWithChanges.nowAvailableRaspberry)
-    // console.log(raspberryListWithChanges)
+    const raspberryListWithChanges = updateRapsberryCache(raspberryList)
 
     // Cache it on file system for other checker instances and API endpoint
     if (!USE_CACHED_REQUEST) {
-      writeFileSync(new URL('../_cached_request.html', import.meta.url), document.documentElement.outerHTML)
       const apiData = {
         lastUpdate: new Date(),
-        data: [...raspberryAvailableCache.values()].map(r => {
-          const priceValueRaw = r.price.split(' ')?.[1]
-          const priceValue = priceValueRaw ? +priceValueRaw : null
-          return {
-            ...r,
-            lastStockISO: new Date(r.lastStock).toLocaleDateString('en-CA'),
-            priceCurrency: r.price.match(/\((.*?)\)/)?.[1] || null,
-            priceValue
-          }
-        })
+        data: [...raspberryAvailableCache.values()],
+        dataOriginalFromRpilocatorApi: raspberryListRpilocatorModel
       }
       writeFileSync(new URL('../_cached_request_data.json', import.meta.url), JSON.stringify(apiData, null, 2))
     }
 
+    // console.log('nowAvailableRaspberry', raspberryListWithChanges.nowAvailableRaspberry)
+    // console.log(raspberryListWithChanges)
+
     if (raspberryListWithChanges.nowAvailableRaspberry.size > 0) {
       await sendTelegramAlert(raspberryListWithChanges)
       if (process.env.NODE_ENV === 'development')
-        writeFileSync(`now-available-${Date.now()}.html`, document.documentElement.outerHTML)
+        writeFileSync(
+          `now-available-${Date.now()}.json`,
+          JSON.stringify([...raspberryAvailableCache.values()], null, 2)
+        )
     } else {
       console.log('Not in stock!')
     }
