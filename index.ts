@@ -308,7 +308,10 @@ const sendTelegramAlert = async (raspberryListWithChanges: ReturnType<typeof upd
   console.log(raspberryListWithChanges.nowAvailableRaspberry)
   console.log(message)
 
-  const sentMsg = await bot.sendMessage(TELEGRAM_CHAT_ID, message, { parse_mode: 'Markdown' })
+  const sentMsg = await bot.sendMessage(TELEGRAM_CHAT_ID, message, {
+    parse_mode: 'Markdown',
+    disable_web_page_preview: true
+  })
 
   // Record the message to update it later
   nowAvailableRaspberryListLastStockMessagesKeys.forEach(raspberryKey => {
@@ -350,7 +353,8 @@ const updateTelegramAlert = async (raspberryListWithChanges: ReturnType<typeof u
       await bot.editMessageText(lastMessageContent.telegramMessage.text, {
         chat_id: TELEGRAM_CHAT_ID,
         message_id: lastMessageContent.telegramMessage.message_id,
-        parse_mode: 'Markdown'
+        parse_mode: 'Markdown',
+        disable_web_page_preview: true
       })
     }
   }
@@ -396,7 +400,8 @@ const checkStock = async () => {
   } catch (error) {
     console.error(error)
     await bot.sendMessage(TELEGRAM_ADMIN_CHAT_ID, `❌ Error!\n\`\`\`${error.stack.slice(0, 2000)}\`\`\``, {
-      parse_mode: 'Markdown'
+      parse_mode: 'Markdown',
+      disable_web_page_preview: true
     })
   }
   debugRound++
