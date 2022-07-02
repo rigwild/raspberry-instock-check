@@ -101,7 +101,7 @@ bot.sendMessage(
   `Bot started! ⚡` +
     `\nLooking for models SKU starting with: ${searchedRaspberryStr}` +
     (PROXY ? `\nUsing proxy: ${new URL(PROXY).hostname}:${new URL(PROXY).port}` : '') +
-    `\n🌟 Star our [GitHub](https://github.com/rigwild/raspberry-instock-check)`,
+    `\n🌟 Star on [GitHub](https://github.com/rigwild/raspberry-instock-check)`,
   { parse_mode: 'Markdown' }
 )
 // .then(res => console.log(res.message_id))
@@ -297,7 +297,7 @@ const getTelegramMessage = (
   // const links = new Set(raspberryAvailabilities.raspberryList.filter(r => r.available).map(r => getRaspberryLink(r)))
   // message += [...links].join('\n')
 
-  message += '\n\n🌟 Star our [GitHub](https://github.com/rigwild/raspberry-instock-check)'
+  message += '\n\n🌟 Star on [GitHub](https://github.com/rigwild/raspberry-instock-check)'
   message += `\n🌐 Stock data from [rpilocator](https://rpilocator.com/?utm_source=telegram&utm_medium=rapsberry_alert)`
   return message
 }
@@ -417,7 +417,7 @@ const liveStockUpdate = async () => {
     .map(r => `✅ ${getRaspberryLink(r)}`)
   message += available.length > 0 ? available.join('\n') : '🤷‍♀️ Nothing available right now'
 
-  message += '\n\n🌟 Star our [GitHub](https://github.com/rigwild/raspberry-instock-check)'
+  message += '\n\n🌟 Star on [GitHub](https://github.com/rigwild/raspberry-instock-check)'
   message += '\n🌐 Stock data from [rpilocator](https://rpilocator.com/?utm_source=telegram&utm_medium=rapsberry_alert)'
   message += `\n\n🔄 Last update at ${toHumanDateTime(new Date())}`
 
