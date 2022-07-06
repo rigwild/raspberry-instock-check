@@ -366,8 +366,46 @@ const checkStock = async () => {
   try {
     console.log('Checking stock...')
 
-    const raspberryListRpilocatorModel = await getRaspberryList()
-    const raspberryList = raspberryListRpilocatorModel.map(rpilocatorApiModelMap)
+    // Do the request 2 times with a bit of delay and check the result is the same
+    // Sometimes rpilocator returns invalid data (race condition when updating on their side)
+    const [rpilocatorData, rpilocatorDataDoubleCheck] = await Promise.all([
+      getRaspberryList(),
+      new Promise(resolve => setTimeout(() => resolve(getRaspberryList()), 1000)) as Promise<
+        ReturnType<typeof getRaspberryList>
+      >
+    ])
+
+    const rpilocatorDataJson = JSON.stringify(rpilocatorData)
+    const rpilocatorDataDoubleCheckJson = JSON.stringify(rpilocatorDataDoubleCheck)
+
+    // Check both requests were succesful
+    if ((rpilocatorData && !rpilocatorDataDoubleCheck) || (!rpilocatorData && rpilocatorDataDoubleCheck)) {
+      console.error('One of the double check requests failed')
+      return
+    }
+
+    // Both requests failed, log error
+    if (!rpilocatorData && !rpilocatorDataDoubleCheck) {
+      const timestamp = Date.now()
+      const url = new URL(`invalid-both-requests-failed-${timestamp}.json`, import.meta.url)
+      writeFileSync(url, rpilocatorDataJson)
+      throw new Error(`Failed double check, both requests failed - Content:\n${rpilocatorDataJson.slice(0, 1000)}`)
+    }
+
+    // Check both requests are indeed identical
+    if (rpilocatorDataJson !== rpilocatorDataDoubleCheckJson) {
+      const timestamp = Date.now()
+      if (process.env.NODE_ENV === 'development') {
+        const url1 = new URL(`invalid-double-check-${timestamp}-1.json`, import.meta.url)
+        const url2 = new URL(`invalid-double-check-${timestamp}-2.json`, import.meta.url)
+        writeFileSync(url1, rpilocatorDataJson)
+        writeFileSync(url2, rpilocatorDataDoubleCheckJson)
+      }
+      console.error('Detected invalid data when double checking')
+      return
+    }
+
+    const raspberryList = rpilocatorData.map(rpilocatorApiModelMap)
 
     const raspberryListWithChanges = updateRapsberryCache(raspberryList)
 
@@ -376,7 +414,7 @@ const checkStock = async () => {
       const apiData = {
         lastUpdate: new Date(),
         data: [...raspberryAvailableCache.values()],
-        dataOriginalFromRpilocatorApi: raspberryListRpilocatorModel
+        dataOriginalFromRpilocatorApi: rpilocatorData
       }
       writeFileSync(new URL('../_cached_request_data.json', import.meta.url), JSON.stringify(apiData, null, 2))
     }
