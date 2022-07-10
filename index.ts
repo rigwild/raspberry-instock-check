@@ -51,6 +51,8 @@ if (
   throw new Error('CHECK_INTERVAL must be at least 15000 ms')
 
 let isFirstInit = true
+let rpilocatorToken: string
+let rpilocatorCookies: string
 const raspberryAvailableCache = new Map<string, Raspberry>()
 
 // Save the sent messages to udpate them when becomes unavailable
@@ -114,6 +116,24 @@ bot.sendMessage(
 )
 // .then(res => console.log(res.message_id))
 
+const getRpilocatorTokenAndCookies = async () => {
+  console.log('Getting new rpilocator token and cookies')
+  const reqHome = await fetch('https://rpilocator.com/', {
+    headers: {
+      accept:
+        'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
+      'User-Agent': 'raspberry_alert telegram bot'
+    },
+    agent: PROXY ? new HttpsProxyAgent(PROXY) : undefined
+  })
+  const homeHTML = await reqHome.text()
+  const extractedToken = homeHTML.match(/localToken="(.*?)"/)?.[1]
+  if (!extractedToken) throw new Error('API token not found!')
+  rpilocatorToken = extractedToken
+  // prettier-ignore
+  rpilocatorCookies = reqHome.headers.raw()['set-cookie'].map(x => x.split(';')[0]).join('; ')
+}
+
 const getRaspberryList = async (): Promise<RaspberryRpilocatorModel[]> => {
   if (process.env.NODE_ENV === 'test' || USE_CACHED_REQUEST) {
     // Load from file system cache instead of fetching from rpilocator
@@ -128,33 +148,29 @@ const getRaspberryList = async (): Promise<RaspberryRpilocatorModel[]> => {
     return JSON.parse(readFileSync(filePath, { encoding: 'utf-8' })).dataOriginalFromRpilocatorApi
   }
 
-  // Extract API token
-  const reqHome = await fetch('https://rpilocator.com/', {
-    headers: {
-      accept:
-        'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
-      'User-Agent': 'raspberry_alert telegram bot'
-    },
-    agent: PROXY ? new HttpsProxyAgent(PROXY) : undefined
-  })
-  const cookies = reqHome.headers.raw()['set-cookie'].map(x => x.split(';')[0])
-  const homeHTML = await reqHome.text()
-  const apiToken = homeHTML.match(/localToken="(.*?)"/)?.[1]
-  if (!apiToken) throw new Error('API token not found!')
+  if (!rpilocatorToken) await getRpilocatorTokenAndCookies()
 
-  // Fetch data
+  // Fetch stock data
   const reqData = await fetch(
-    `https://rpilocator.com/data.cfm?method=getProductTable&instock&token=${apiToken}&&_=${Date.now()}`,
+    `https://rpilocator.com/data.cfm?method=getProductTable&instock&token=${rpilocatorToken}&&_=${Date.now()}`,
     {
       headers: {
         accept: 'application/json, text/javascript, */*; q=0.01',
         'x-requested-with': 'XMLHttpRequest',
         'User-Agent': 'raspberry_alert telegram bot',
-        cookie: cookies.join('; ')
+        cookie: rpilocatorCookies
       },
       agent: PROXY ? new HttpsProxyAgent(PROXY) : undefined
     }
   )
+
+  if (reqData.status === 403) {
+    // Try to get a new token and retry in 3s
+    await new Promise(resolve => setTimeout(resolve, 3000))
+    await getRpilocatorTokenAndCookies()
+    return getRaspberryList()
+  }
+
   if (!reqData.ok)
     throw new Error(`Failed to fetch API data! - Status ${reqData.status}\n${(await reqData.text()).slice(0, 2000)}`)
 
