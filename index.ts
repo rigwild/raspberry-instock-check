@@ -42,6 +42,14 @@ type RaspberryRpilocatorModel = {
   description: string
 }
 
+if (
+  process.env.NODE_ENV !== 'test' &&
+  process.env.NODE_ENV !== 'development' &&
+  !USE_CACHED_REQUEST &&
+  CHECK_INTERVAL < 15_000
+)
+  throw new Error('CHECK_INTERVAL must be at least 15000 ms')
+
 let isFirstInit = true
 const raspberryAvailableCache = new Map<string, Raspberry>()
 
