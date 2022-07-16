@@ -125,7 +125,7 @@ const getRpilocatorTokenAndCookies = async () => {
   rpilocatorCookies = reqHome.headers.raw()['set-cookie'].map(x => x.split(';')[0]).join('; ')
 }
 
-const getRaspberryList = async (): Promise<RaspberryRpilocatorModel[]> => {
+const getRaspberryList = async (): Promise<Raspberry[]> => {
   if (process.env.NODE_ENV === 'test' || USE_CACHED_REQUEST) {
     // Load from file system cache instead of fetching from rpilocator
     let fileName = '_mock_fetched_data_full.json'
@@ -175,11 +175,12 @@ const getRaspberryList = async (): Promise<RaspberryRpilocatorModel[]> => {
   if (!reqData.ok)
     throw new Error(`Failed to fetch API data! - Status ${reqData.status}\n${(await reqData.text()).slice(0, 2000)}`)
 
-  let raspberryList: RaspberryRpilocatorModel[]
+  let raspberryList: Raspberry[]
+  let raspberryListJson = await reqData.text()
   try {
-    raspberryList = ((await reqData.json()) as any).data
+    raspberryList = JSON.parse(raspberryListJson).data
   } catch (error) {
-    throw new Error(`API data was not JSON!\n${(await reqData.text()).slice(0, 2000)}`)
+    throw new Error(`API data was not JSON!\n${raspberryListJson.slice(0, 2000)}`)
   }
   return raspberryList
 }
