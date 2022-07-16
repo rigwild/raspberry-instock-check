@@ -151,18 +151,28 @@ const getRaspberryList = async (): Promise<RaspberryRpilocatorModel[]> => {
   if (!rpilocatorToken) await getRpilocatorTokenAndCookies()
 
   // Fetch stock data
-  const reqData = await fetch(
-    `https://rpilocator.com/data.cfm?method=getProductTable&instock&token=${rpilocatorToken}&&_=${Date.now()}`,
-    {
-      headers: {
-        accept: 'application/json, text/javascript, */*; q=0.01',
-        'x-requested-with': 'XMLHttpRequest',
-        'User-Agent': 'raspberry_alert telegram bot',
-        cookie: rpilocatorCookies
-      },
-      agent: PROXY ? new HttpsProxyAgent(PROXY) : undefined
+  let reqData: Awaited<ReturnType<typeof fetch>>
+  try {
+    reqData = await fetch(
+      `https://rpilocator.com/data.cfm?method=getProductTable&instock&token=${rpilocatorToken}&&_=${Date.now()}`,
+      {
+        headers: {
+          accept: 'application/json, text/javascript, */*; q=0.01',
+          'x-requested-with': 'XMLHttpRequest',
+          'User-Agent': 'raspberry_alert telegram bot',
+          cookie: rpilocatorCookies
+        },
+        agent: PROXY ? new HttpsProxyAgent(PROXY) : undefined
+      }
+    )
+  } catch (error) {
+    // If DNS error, log error but do not alert telegram admin
+    if (error.message.includes('getaddrinfo EAI_AGAIN')) {
+      console.error(error)
+      return null as any
     }
-  )
+    throw error
+  }
 
   if (reqData.status === 403) {
     // Try to get a new token and retry in 3s
