@@ -1,21 +1,6 @@
 {
   "lastUpdate": "2022-06-29T18:35:15.869Z",
-  "data": [
-    {
-      "sku": "RPI3-MODAP",
-      "description": "RPi 3 Model A+ - 512MB RAM",
-      "vendor": "Pi-Shop (CH)",
-      "price": {
-        "value": 41.9,
-        "currency": "CHF",
-        "display": "41.90 CHF"
-      },
-      "link": "https://www.pi-shop.ch/raspberry-pi-3-model-a",
-      "lastStock": "2022-06-29",
-      "available": true
-    }
-  ],
-  "dataOriginalFromRpilocatorApi": [
+  "_data": [
     {
       "update_t": {
         "sort": 2,

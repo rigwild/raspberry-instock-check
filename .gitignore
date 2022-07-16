@@ -1,7 +1,4 @@
 node_modules
-run.sh
-run.dev.sh
-run.test.sh
-run_*
+run*.sh
 dist
 _cached_request_data.json

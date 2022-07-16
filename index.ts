@@ -23,15 +23,6 @@ const API_RUN = process.env.API_RUN === '1'
 const PROXY = process.env.PROXY
 
 type Raspberry = {
-  sku: string
-  description: string
-  vendor: string
-  price: { value: number; display: string; currency: string }
-  link: string
-  lastStock: string
-  available: boolean
-}
-type RaspberryRpilocatorModel = {
   update_t: { sort: number; display: string }
   price: { sort: number; display: string; currency: string }
   vendor: string
@@ -145,7 +136,7 @@ const getRaspberryList = async (): Promise<RaspberryRpilocatorModel[]> => {
     if (!existsSync(filePath))
       throw new Error('Cached request file not found! Start your other checker instance first!')
 
-    return JSON.parse(readFileSync(filePath, { encoding: 'utf-8' })).dataOriginalFromRpilocatorApi
+    return JSON.parse(readFileSync(filePath, { encoding: 'utf-8' }))._data
   }
 
   if (!rpilocatorToken) await getRpilocatorTokenAndCookies()
@@ -193,21 +184,8 @@ const getRaspberryList = async (): Promise<RaspberryRpilocatorModel[]> => {
   return raspberryList
 }
 
-const rpilocatorApiModelMap = (raspberry: RaspberryRpilocatorModel): Raspberry => {
-  const { update_t, price, vendor, sku, avail, link, last_stock, description } = raspberry
-  return {
-    sku,
-    description,
-    vendor,
-    price: { value: price.sort, currency: price.currency, display: `${price.sort.toFixed(2)} ${price.currency}` },
-    link,
-    lastStock: last_stock.sort,
-    available: avail === 'Yes'
-  }
-}
-
 const updateRapsberryCache = (raspberryList: Raspberry[]) => {
-  raspberryList = raspberryList.filter(r => r.available)
+  raspberryList = raspberryList.filter(r => r.avail === 'Yes')
   if (SEARCHED_RASPBERRY_MODELS?.[0] !== '*')
     raspberryList = raspberryList.filter(r =>
       SEARCHED_RASPBERRY_MODELS.some(model => r.sku.toLowerCase().startsWith(model))
@@ -219,13 +197,13 @@ const updateRapsberryCache = (raspberryList: Raspberry[]) => {
       sku: 'RPI4-MODBP-4GB',
       description: 'RPi 4 Model B - 4GB RAM',
       vendor: 'electro:kit (SE)',
-      price: { display: '719.00 SEK' }
+      price: { display: '719.00', currency: 'SEK' }
     }
     const mock2 = {
       sku: 'CM4104000',
       description: 'RPi CM4 - 4GB RAM, No MMC, With Wifi',
       vendor: 'Welectron (DE)',
-      price: { display: '64.90 EUR' }
+      price: { display: '64.90', currency: 'EUR' }
     }
     if (debugRound === 1) {
       raspberryList.push(mock1 as any)
@@ -293,7 +271,7 @@ const getRaspberryLink = (r: Raspberry) => {
     itemLink = `https://rpilocator.com/?utm_source=telegram&utm_medium=rapsberry_alert`
     if (vendors[r.vendor]) itemLink += `&vendor=${vendors[r.vendor]}`
   }
-  return `[${r.description} | ${r.vendor} | ${r.price.display}](${itemLink})`
+  return `[${r.description} | ${r.vendor} | ${r.price.display} ${r.price.currency}](${itemLink})`
 }
 
 const getRaspberryKey = (r: Raspberry) => `${r.sku}-${r.vendor}-${r.price.display}`
@@ -408,44 +386,42 @@ const checkStock = async () => {
 
     // Do the request 2 times with a bit of delay and check the result is the same
     // Sometimes rpilocator returns invalid data (race condition when updating on their side)
-    const [rpilocatorData, rpilocatorDataDoubleCheck] = await Promise.all([
+    const [raspberryList, raspberryListDoubleCheck] = await Promise.all([
       getRaspberryList(),
       new Promise(resolve => setTimeout(() => resolve(getRaspberryList()), 1000)) as Promise<
         ReturnType<typeof getRaspberryList>
       >
     ])
 
-    const rpilocatorDataJson = JSON.stringify(rpilocatorData)
-    const rpilocatorDataDoubleCheckJson = JSON.stringify(rpilocatorDataDoubleCheck)
+    const raspberryListJson = JSON.stringify(raspberryList)
+    const raspberryListDoubleCheckJson = JSON.stringify(raspberryListDoubleCheck)
 
     // Check both requests were succesful
-    if ((rpilocatorData && !rpilocatorDataDoubleCheck) || (!rpilocatorData && rpilocatorDataDoubleCheck)) {
+    if ((raspberryList && !raspberryListDoubleCheck) || (!raspberryList && raspberryListDoubleCheck)) {
       console.error('One of the double check requests failed')
       return
     }
 
     // Both requests failed, log error
-    if (!rpilocatorData && !rpilocatorDataDoubleCheck) {
+    if (!raspberryList && !raspberryListDoubleCheck) {
       const timestamp = Date.now()
       const url = new URL(`invalid-both-requests-failed-${timestamp}.json`, import.meta.url)
-      writeFileSync(url, rpilocatorDataJson)
-      throw new Error(`Failed double check, both requests failed - Content:\n${rpilocatorDataJson.slice(0, 1000)}`)
+      writeFileSync(url, raspberryListJson)
+      throw new Error(`Failed double check, both requests failed - Content:\n${raspberryListJson.slice(0, 1000)}`)
     }
 
     // Check both requests are indeed identical
-    if (rpilocatorDataJson !== rpilocatorDataDoubleCheckJson) {
+    if (raspberryListJson !== raspberryListDoubleCheckJson) {
       const timestamp = Date.now()
       if (process.env.NODE_ENV === 'development') {
         const url1 = new URL(`invalid-double-check-${timestamp}-1.json`, import.meta.url)
         const url2 = new URL(`invalid-double-check-${timestamp}-2.json`, import.meta.url)
-        writeFileSync(url1, rpilocatorDataJson)
-        writeFileSync(url2, rpilocatorDataDoubleCheckJson)
+        writeFileSync(url1, raspberryListJson)
+        writeFileSync(url2, raspberryListDoubleCheckJson)
       }
       console.error('Detected invalid data when double checking')
       return
     }
-
-    const raspberryList = rpilocatorData.map(rpilocatorApiModelMap)
 
     const raspberryListWithChanges = updateRapsberryCache(raspberryList)
 
@@ -453,8 +429,7 @@ const checkStock = async () => {
     if (!USE_CACHED_REQUEST) {
       const apiData = {
         lastUpdate: new Date(),
-        data: [...raspberryAvailableCache.values()],
-        dataOriginalFromRpilocatorApi: rpilocatorData
+        _data: raspberryList
       }
       writeFileSync(new URL('../_cached_request_data.json', import.meta.url), JSON.stringify(apiData, null, 2))
     }
@@ -491,7 +466,7 @@ const liveStockUpdate = async () => {
   let message = '🔴🤖 Live Raspberry Stock Update\n\n'
 
   const available = [...new Set([...raspberryAvailableCache.values()])]
-    .filter(x => x.available)
+    .filter(x => x.avail === 'Yes')
     .map(r => `✅ ${getRaspberryLink(r)}`)
   message += available.length > 0 ? available.join('\n') : '🤷‍♀️ Nothing available right now'
 
