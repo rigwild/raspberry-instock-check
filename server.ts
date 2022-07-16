@@ -1,10 +1,12 @@
 import { readFile } from 'fs/promises'
 import express from 'express'
 import rateLimit from 'express-rate-limit'
+import morgan from 'morgan'
+import cors from 'cors'
 
-let cache = {}
 const port = process.env.API_PORT || 3000
 const trustProxy = process.env.API_TRUST_PROXY === '1'
+let cache = {}
 
 const refreshCache = async () => {
   const data = await readFile(new URL('../_cached_request_data.json', import.meta.url), { encoding: 'utf-8' })
@@ -21,6 +23,9 @@ export const startServer = () => {
   const app = express()
   if (trustProxy) app.enable('trust proxy')
   app.use(limiter)
+  app.use(morgan('common'))
+  app.use(cors())
+
   app.get('/', (req, res) => res.json(cache))
 
   refreshCache().finally(() => {
