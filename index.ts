@@ -184,7 +184,13 @@ const getRaspberryList = async (): Promise<RaspberryRpilocatorModel[]> => {
   if (!reqData.ok)
     throw new Error(`Failed to fetch API data! - Status ${reqData.status}\n${(await reqData.text()).slice(0, 2000)}`)
 
-  return ((await reqData.json()) as any).data as RaspberryRpilocatorModel[]
+  let raspberryList: RaspberryRpilocatorModel[]
+  try {
+    raspberryList = ((await reqData.json()) as any).data
+  } catch (error) {
+    throw new Error(`API data was not JSON!\n${(await reqData.text()).slice(0, 2000)}`)
+  }
+  return raspberryList
 }
 
 const rpilocatorApiModelMap = (raspberry: RaspberryRpilocatorModel): Raspberry => {
