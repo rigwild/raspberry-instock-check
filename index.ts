@@ -56,40 +56,43 @@ const lastStockMessagesIds = new Map<string, number>()
 const lastStockMessagesContent = new Map<number, StockMessageContent>()
 
 const vendors = {
-  'Semaf (AT)': 'semaf',
-  'MC Hobby (BE)': 'mchobby',
-  'Pishop (CA)': 'pishopca',
-  'Pi-Shop (CH)': 'pishopch',
-  'Seeedstudio (CN)': 'seeedstudio',
-  'BerryBase (DE)': 'berrybase',
-  'Rasppishop (DE)': 'rasppishop',
-  'Welectron (DE)': 'welectron',
-  'pi3g (DE)': 'pi3g',
-  'Kubii (FR)': 'kubii',
-  'Melopero (IT)': 'melopero',
-  'Switch Science (JP)': 'switchjp',
-  'Elektor (NL)': 'elektor',
-  'OKDO (NL)': 'okdonl',
-  'RaspberryStore (NL)': 'raspberrystore',
-  'Botland (PL)': 'botland',
-  'Robert Mauser (PT)': 'mauserpt',
-  'electro:kit (SE)': 'electrokit',
-  'Cool Components (UK)': 'coolcomp',
-  'Farnell (UK)': 'farnell',
-  'OKDO (UK)': 'okdouk',
-  'Pimoroni (UK)': 'pimoroni',
-  'Rapid (UK)': 'rapid',
-  'SB Components (UK)': 'sbcomp',
-  'The Pihut (UK)': 'thepihut',
   'Adafruit (US)': 'adafruit',
+  'BerryBase (DE)': 'berrybase',
+  'Botland (PL)': 'botland',
   'Chicago Elec. Dist. (US)': 'chicagodist',
+  'Cool Components (UK)': 'coolcomp',
   'Digi-Key (US)': 'digikeyus',
+  'electro:kit (SE)': 'electrokit',
+  'Elektor (NL)': 'elektor',
+  'Elektronica Voor Jou (NL)': 'elektronica',
+  'Farnell (UK)': 'farnell',
+  'Kubii (FR)': 'kubii',
+  'MC Hobby (BE)': 'mchobby',
+  'Melopero (IT)': 'melopero',
   'Newark (US)': 'newark',
+  'OKDO (NL)': 'okdonl',
+  'OKDO (UK)': 'okdouk',
   'OKDO (US)': 'okdous',
+  'Pi-Shop (CH)': 'pishopch',
+  'pi3g (DE)': 'pi3g',
+  'Pimoroni (UK)': 'pimoroni',
+  'Pishop (CA)': 'pishopca',
   'Pishop (US)': 'pishopus',
+  'PiShop (ZA)': 'pishopza',
+  'Rapid (UK)': 'rapid',
+  'RaspberryStore (NL)': 'raspberrystore',
+  'Rasppishop (DE)': 'rasppishop',
+  'Reichelt (DE)': 'reichelt',
+  'Robert Mauser (PT)': 'mauserpt',
+  'SB Components (UK)': 'sbcomp',
+  'Seeedstudio (CN)': 'seeedstudio',
+  'Semaf (AT)': 'semaf',
   'Sparkfun (US)': 'sparkfun',
+  'Switch Science (JP)': 'switchjp',
+  'The Pihut (UK)': 'thepihut',
+  'Tiendatec (ES)': 'tiendatec',
   'Vilros (US)': 'vilros',
-  'PiShop (ZA)': 'pishopza'
+  'Welectron (DE)': 'welectron'
 }
 
 let debugRound = 0
@@ -347,11 +350,11 @@ const sendTelegramAlert = async (raspberryListWithChanges: ReturnType<typeof upd
     lastStockMessagesIds.set(raspberryKey, sentMsg.message_id)
     lastStockMessagesContent.set(sentMsg.message_id, messageContent)
 
-    // Delete key in 24 hours
+    // Delete key in 48 hours (avoid a dumb memory leak)
     setTimeout(() => {
       lastStockMessagesIds.delete(raspberryKey)
       lastStockMessagesContent.delete(sentMsg.message_id)
-    }, 24 * 60 * 60 * 1000)
+    }, 48 * 60 * 60 * 1000)
   })
 }
 
