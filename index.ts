@@ -414,7 +414,14 @@ const checkStock = async () => {
       new Promise(resolve => setTimeout(() => resolve(getRaspberryList()), 1000)) as Promise<
         ReturnType<typeof getRaspberryList>
       >
-    ])
+    ]).catch(e => {
+      errorsCount++
+      if (errorsCount >= ERRORS_SKIP_THRESOLD) {
+        errorsCount = 0
+        errorsSkipCyclesLeft = ERRORS_SKIP_CYCLES()
+      }
+      throw e
+    })
 
     const raspberryListJson = JSON.stringify(raspberryList)
     const raspberryListDoubleCheckJson = JSON.stringify(raspberryListDoubleCheck)
@@ -475,12 +482,6 @@ const checkStock = async () => {
     }
   } catch (error) {
     console.error(error)
-
-    errorsCount++
-    if (errorsCount >= ERRORS_SKIP_THRESOLD) {
-      errorsCount = 0
-      errorsSkipCyclesLeft = ERRORS_SKIP_CYCLES()
-    }
 
     await bot.sendMessage(TELEGRAM_ADMIN_CHAT_ID, `❌ Error!\n\`\`\`${error.stack.slice(0, 2000)}\`\`\``, {
       parse_mode: 'Markdown',
