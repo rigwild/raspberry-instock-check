@@ -47,14 +47,21 @@ let rpilocatorCookies: string
 const raspberryAvailableCache = new Map<string, Raspberry>()
 
 /**
- * Errors count  when fetching data from rpilocator
- * When `ERRORS_SKIP_THRESOLD` is reached,
+ * List of errors when fetching data from rpilocator
+ * When `ERRORS_SKIP_THRESOLD` is reached in a time window of `ERRORS_SKIP_TIME_WINDOW`,
  * skip the next `ERRORS_SKIP_CYCLES` fetch cycles, then reset
  */
-let errorsCount = 0
-let errorsSkipCyclesLeft = 0
+let fetchErrors: Date[] = []
+let fetchErrorsSkipCyclesLeft = 0
 const ERRORS_SKIP_THRESOLD = 5
-const ERRORS_SKIP_CYCLES = () => 3 + (Math.floor(Math.random() * 10) % 5) // 3 <= x <= 7
+const ERRORS_SKIP_TIME_WINDOW = (5 * 60_000) / 5 // Look at last 5 minutes
+const hasReachedErrorsSkipThresold = () => {
+  const now = Date.now()
+  // Remove errors that are outside the time window
+  fetchErrors = fetchErrors.filter(x => x.getTime() > now - ERRORS_SKIP_TIME_WINDOW)
+  return fetchErrors.length >= ERRORS_SKIP_THRESOLD
+}
+const ERRORS_SKIP_CYCLES = () => 2 + (Math.floor(Math.random() * 10) % 4) // 2 <= x <= 5
 
 // Save the sent messages to udpate them when becomes unavailable
 type StockMessageContent = {
@@ -394,14 +401,14 @@ const updateTelegramAlert = async (raspberryListWithChanges: ReturnType<typeof u
 const checkStock = async () => {
   if (process.env.NODE_ENV === 'development') console.log(debugRound)
 
-  if (errorsSkipCyclesLeft > 0) {
+  if (fetchErrorsSkipCyclesLeft > 0) {
     if (process.env.NODE_ENV === 'development')
-      console.log(`Too many errors, skipping - errorsSkipCyclesLeft: ${errorsSkipCyclesLeft}`)
-    errorsSkipCyclesLeft--
+      console.log(`Too many errors, skipping - errorsSkipCyclesLeft: ${fetchErrorsSkipCyclesLeft}`)
+    fetchErrorsSkipCyclesLeft--
     return
   } else {
     // Just to make sure in case we have some wtf race condition
-    errorsSkipCyclesLeft = 0
+    fetchErrorsSkipCyclesLeft = 0
   }
 
   try {
@@ -415,10 +422,10 @@ const checkStock = async () => {
         ReturnType<typeof getRaspberryList>
       >
     ]).catch(e => {
-      errorsCount++
-      if (errorsCount >= ERRORS_SKIP_THRESOLD) {
-        errorsCount = 0
-        errorsSkipCyclesLeft = ERRORS_SKIP_CYCLES()
+      fetchErrors.push(new Date())
+      if (hasReachedErrorsSkipThresold()) {
+        // Too many fetch errors in the time window, skip some fetch cycles
+        fetchErrorsSkipCyclesLeft = ERRORS_SKIP_CYCLES()
       }
       throw e
     })
