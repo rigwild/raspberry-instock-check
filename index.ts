@@ -46,6 +46,16 @@ let rpilocatorToken: string
 let rpilocatorCookies: string
 const raspberryAvailableCache = new Map<string, Raspberry>()
 
+/**
+ * Errors count  when fetching data from rpilocator
+ * When `ERRORS_SKIP_THRESOLD` is reached,
+ * skip the next `ERRORS_SKIP_CYCLES` fetch cycles, then reset
+ */
+let errorsCount = 0
+let errorsSkipCyclesLeft = 0
+const ERRORS_SKIP_THRESOLD = 5
+const ERRORS_SKIP_CYCLES = () => 3 + (Math.floor(Math.random() * 10) % 5) // 3 <= x <= 7
+
 // Save the sent messages to udpate them when becomes unavailable
 type StockMessageContent = {
   telegramMessage: TelegramBot.Message
@@ -384,6 +394,16 @@ const updateTelegramAlert = async (raspberryListWithChanges: ReturnType<typeof u
 const checkStock = async () => {
   if (process.env.NODE_ENV === 'development') console.log(debugRound)
 
+  if (errorsSkipCyclesLeft > 0) {
+    if (process.env.NODE_ENV === 'development')
+      console.log(`Too many errors, skipping - errorsSkipCyclesLeft: ${errorsSkipCyclesLeft}`)
+    errorsSkipCyclesLeft--
+    return
+  } else {
+    // Just to make sure in case we have some wtf race condition
+    errorsSkipCyclesLeft = 0
+  }
+
   try {
     console.log('Checking stock...')
 
@@ -455,6 +475,13 @@ const checkStock = async () => {
     }
   } catch (error) {
     console.error(error)
+
+    errorsCount++
+    if (errorsCount >= ERRORS_SKIP_THRESOLD) {
+      errorsCount = 0
+      errorsSkipCyclesLeft = ERRORS_SKIP_CYCLES()
+    }
+
     await bot.sendMessage(TELEGRAM_ADMIN_CHAT_ID, `❌ Error!\n\`\`\`${error.stack.slice(0, 2000)}\`\`\``, {
       parse_mode: 'Markdown',
       disable_web_page_preview: true
