@@ -54,7 +54,7 @@ const raspberryAvailableCache = new Map<string, Raspberry>()
 let fetchErrors: Date[] = []
 let fetchErrorsSkipCyclesLeft = 0
 const ERRORS_SKIP_THRESOLD = 5
-const ERRORS_SKIP_TIME_WINDOW = (5 * 60_000) / 5 // Look at last 5 minutes
+const ERRORS_SKIP_TIME_WINDOW = 5 * 60_000 // Look at last 5 minutes
 const hasReachedErrorsSkipThresold = () => {
   const now = Date.now()
   // Remove errors that are outside the time window
@@ -421,11 +421,14 @@ const checkStock = async () => {
       new Promise(resolve => setTimeout(() => resolve(getRaspberryList()), 1000)) as Promise<
         ReturnType<typeof getRaspberryList>
       >
-    ]).catch(e => {
+    ]).catch(async e => {
       fetchErrors.push(new Date())
       if (hasReachedErrorsSkipThresold()) {
         // Too many fetch errors in the time window, skip some fetch cycles
-        fetchErrorsSkipCyclesLeft = ERRORS_SKIP_CYCLES()
+        const cyclesToSkip = ERRORS_SKIP_CYCLES()
+        fetchErrorsSkipCyclesLeft = cyclesToSkip
+
+        await bot.sendMessage(TELEGRAM_ADMIN_CHAT_ID, `⏳ Too many errors, skipping ${cyclesToSkip} check cycles!`)
       }
       throw e
     })
@@ -490,7 +493,10 @@ const checkStock = async () => {
   } catch (error) {
     console.error(error)
 
-    await bot.sendMessage(TELEGRAM_ADMIN_CHAT_ID, `❌ Error!\n\`\`\`${error.stack.slice(0, 2000)}\`\`\``, {
+    let stack = error.stack?.slice(0, 2000)
+    if (error.message.includes('API data was not JSON!')) stack = 'API data was not JSON!'
+
+    await bot.sendMessage(TELEGRAM_ADMIN_CHAT_ID, `❌ Error!\n\`\`\`${stack}\`\`\``, {
       parse_mode: 'Markdown',
       disable_web_page_preview: true
     })
