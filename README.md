@@ -101,6 +101,10 @@ To simulate some alerts to see if it's working, set the environment variable `NO
 
 | Model (SKU)      | Description                            |
 | ---------------- | -------------------------------------- |
+| `CM3+16GB`       | RPi CM3+ - 1GB RAM, 16GB MMC           |
+| `CM3+32GB`       | RPi CM3+ - 1GB RAM, 32GB MMC           |
+| `CM3+8GB`        | RPi CM3+ - 1GB RAM, 8GB MMC            |
+| `CM3+Lite`       | RPi CM3+ - 1GB RAM, No MMC             |
 | `CM4001000`      | RPi CM4 - 1GB RAM, No MMC, No Wifi     |
 | `CM4001008`      | RPi CM4 - 1GB RAM, 8GB MMC, No Wifi    |
 | `CM4001016`      | RPi CM4 - 1GB RAM, 16GB MMC, No Wifi   |
@@ -133,8 +137,8 @@ To simulate some alerts to see if it's working, set the environment variable `NO
 | `CM4108008`      | RPi CM4 - 8GB RAM, 8GB MMC, With Wifi  |
 | `CM4108016`      | RPi CM4 - 8GB RAM, 16GB MMC, With Wifi |
 | `CM4108032`      | RPi CM4 - 8GB RAM, 32GB MMC, With Wifi |
-| `RPI3-MODAP`     | RPi 3 Model A                          |
-| `RPI3-MODBP`     | RPi 3 Model B                          |
+| `RPI3-MODAP`     | RPi 3 Model A+ - 512MB RAM             |
+| `RPI3-MODBP`     | RPi 3 Model B+ - 1GB RAM               |
 | `RPI4-MODBP-1GB` | RPi 4 Model B - 1GB RAM                |
 | `RPI4-MODBP-2GB` | RPi 4 Model B - 2GB RAM                |
 | `RPI4-MODBP-4GB` | RPi 4 Model B - 4GB RAM                |
