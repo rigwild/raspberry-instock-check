@@ -61,7 +61,7 @@ const hasReachedErrorsSkipThresold = () => {
   fetchErrors = fetchErrors.filter(x => x.getTime() > now - ERRORS_SKIP_TIME_WINDOW)
   return fetchErrors.length >= ERRORS_SKIP_THRESOLD
 }
-const ERRORS_SKIP_CYCLES = () => 2 + (Math.floor(Math.random() * 10) % 4) // 2 <= x <= 5
+const ERRORS_SKIP_CYCLES = () => 4 + (Math.floor(Math.random() * 10) % 11) // 4 <= x <= 10
 
 // Save the sent messages to udpate them when becomes unavailable
 type StockMessageContent = {
@@ -402,8 +402,7 @@ const checkStock = async () => {
   if (process.env.NODE_ENV === 'development') console.log(debugRound)
 
   if (fetchErrorsSkipCyclesLeft > 0) {
-    if (process.env.NODE_ENV === 'development')
-      console.log(`Too many errors, skipping - errorsSkipCyclesLeft: ${fetchErrorsSkipCyclesLeft}`)
+    console.log(`Too many errors, skipping - errorsSkipCyclesLeft: ${fetchErrorsSkipCyclesLeft}`)
     fetchErrorsSkipCyclesLeft--
     return
   } else {
