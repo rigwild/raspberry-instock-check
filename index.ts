@@ -170,7 +170,8 @@ const getRaspberryList = async (): Promise<Raspberry[]> => {
           accept: 'application/json, text/javascript, */*; q=0.01',
           'x-requested-with': 'XMLHttpRequest',
           'User-Agent': 'raspberry_alert telegram bot',
-          cookie: rpilocatorCookies
+          cookie: rpilocatorCookies,
+          referer: 'https://rpilocator.com/'
         },
         agent: PROXY ? new HttpsProxyAgent(PROXY) : undefined
       }
@@ -197,8 +198,15 @@ const getRaspberryList = async (): Promise<Raspberry[]> => {
   let raspberryList: Raspberry[]
   let raspberryListJson = await reqData.text()
   try {
+    // writeFileSync(new URL(`log-${Date.now()}.html`, import.meta.url), raspberryListJson)
     raspberryList = JSON.parse(raspberryListJson).data
   } catch (error) {
+    if (process.env.NODE_ENV === 'development') {
+      console.log(reqData.status, reqData.statusText)
+      console.log(rpilocatorCookies)
+      console.log(rpilocatorToken)
+      writeFileSync(new URL(`log-${Date.now()}.html`, import.meta.url), raspberryListJson)
+    }
     throw new Error(`API data was not JSON!\n${raspberryListJson.slice(0, 2000)}`)
   }
   return raspberryList
