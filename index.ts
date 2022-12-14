@@ -101,7 +101,6 @@ const vendors = {
   'Rasppishop (DE)': 'rasppishop',
   'Reichelt (DE)': 'reichelt',
   'Robert Mauser (PT)': 'mauserpt',
-  'SB Components (UK)': 'sbcomp',
   'Seeedstudio (CN)': 'seeedstudio',
   'Semaf (AT)': 'semaf',
   'Sparkfun (US)': 'sparkfun',
