@@ -93,6 +93,15 @@ Kill
 pm2 delete all
 ```
 
+## Run with Docker
+
+Use [Docker](https://docker.com)
+
+```sh
+docker build -t raspberry-instock-check .
+docker run -d -e TELEGRAM_TOKEN='...' -e TELEGRAM_CHAT_ID='...' -e TELEGRAM_ADMIN_CHAT_ID='...' raspberry-instock-check
+```
+
 ## Test
 
 To simulate some alerts to see if it's working, set the environment variable `NODE_ENV=test`.
