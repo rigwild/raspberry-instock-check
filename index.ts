@@ -73,23 +73,22 @@ const lastStockMessagesIds = new Map<string, number>()
 const lastStockMessagesContent = new Map<number, StockMessageContent>()
 
 const vendors = {
+  '330ohms (MX)': '330ohms',
   'Adafruit (US)': 'adafruit',
   'BerryBase (DE)': 'berrybase',
   'Botland (PL)': 'botland',
   'Chicago Elec. Dist. (US)': 'chicagodist',
   'Cool Components (UK)': 'coolcomp',
-  'Core Electronics (AU)': 'coreelec',
   'Digi-Key (US)': 'digikeyus',
   'electro:kit (SE)': 'electrokit',
   'Elektor (NL)': 'elektor',
   'Farnell (UK)': 'farnell',
+  'Kamami (PL)': 'kamami',
   'Kubii (FR)': 'kubii',
   'MC Hobby (BE)': 'mchobby',
   'Melopero (IT)': 'melopero',
   'Newark (US)': 'newark',
-  'OKDO (NL)': 'okdonl',
-  'OKDO (UK)': 'okdouk',
-  'OKDO (US)': 'okdous',
+  'Pi Australia (AU)': 'piaustralia',
   'Pi-Shop (CH)': 'pishopch',
   'pi3g (DE)': 'pi3g',
   'Pimoroni (UK)': 'pimoroni',
@@ -104,10 +103,9 @@ const vendors = {
   'Seeedstudio (CN)': 'seeedstudio',
   'Semaf (AT)': 'semaf',
   'Sparkfun (US)': 'sparkfun',
-  'The Pihut (UK)': 'thepihut',
+  'The Pi Hut (UK)': 'thepihut',
   'Tiendatec (ES)': 'tiendatec',
-  'Vilros (US)': 'vilros',
-  'Welectron (DE)': 'welectron'
+  'Welectron (DE)': 'welectron',
 }
 
 let debugRound = 0
@@ -131,9 +129,9 @@ const getRpilocatorTokenAndCookies = async () => {
     headers: {
       accept:
         'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
-      'User-Agent': 'raspberry_alert telegram bot'
+      'User-Agent': 'raspberry_alert telegram bot',
     },
-    agent: PROXY ? new HttpsProxyAgent(PROXY) : undefined
+    agent: PROXY ? new HttpsProxyAgent(PROXY) : undefined,
   })
   const homeHTML = await reqHome.text()
   const extractedToken = homeHTML.match(/localToken="(.*?)"/)?.[1]
@@ -170,9 +168,9 @@ const getRaspberryList = async (): Promise<Raspberry[]> => {
           'x-requested-with': 'XMLHttpRequest',
           'User-Agent': 'raspberry_alert telegram bot',
           cookie: rpilocatorCookies,
-          referer: 'https://rpilocator.com/'
+          referer: 'https://rpilocator.com/',
         },
-        agent: PROXY ? new HttpsProxyAgent(PROXY) : undefined
+        agent: PROXY ? new HttpsProxyAgent(PROXY) : undefined,
       }
     )
   } catch (error) {
@@ -224,13 +222,13 @@ const updateRapsberryCache = (raspberryList: Raspberry[]) => {
       sku: 'RPI4-MODBP-4GB',
       description: 'RPi 4 Model B - 4GB RAM',
       vendor: 'electro:kit (SE)',
-      price: { display: '719.00', currency: 'SEK' }
+      price: { display: '719.00', currency: 'SEK' },
     }
     const mock2 = {
       sku: 'CM4104000',
       description: 'RPi CM4 - 4GB RAM, No MMC, With Wifi',
       vendor: 'Welectron (DE)',
-      price: { display: '64.90', currency: 'EUR' }
+      price: { display: '64.90', currency: 'EUR' },
     }
     if (debugRound === 1) {
       raspberryList.push(mock1 as any)
@@ -258,7 +256,7 @@ const updateRapsberryCache = (raspberryList: Raspberry[]) => {
 
   const raspberryListWithChanges = {
     nowAvailableRaspberry: new Map<string, Raspberry>(),
-    nowUnavailableRaspberry: new Map<string, Raspberry>()
+    nowUnavailableRaspberry: new Map<string, Raspberry>(),
   }
 
   // Do not alert on first lauch (startup), only fill the cache
@@ -355,7 +353,7 @@ const sendTelegramAlert = async (raspberryListWithChanges: ReturnType<typeof upd
 
   const sentMsg = await bot.sendMessage(TELEGRAM_CHAT_ID, message, {
     parse_mode: 'Markdown',
-    disable_web_page_preview: true
+    disable_web_page_preview: true,
   })
 
   // Record the message to update it later
@@ -368,7 +366,7 @@ const sendTelegramAlert = async (raspberryListWithChanges: ReturnType<typeof upd
     const messageContent = {
       telegramMessage: sentMsg,
       raspberryAvailable,
-      raspberryUnavailable: new Map()
+      raspberryUnavailable: new Map(),
     }
     lastStockMessagesIds.set(raspberryKey, sentMsg.message_id)
     lastStockMessagesContent.set(sentMsg.message_id, messageContent)
@@ -392,14 +390,14 @@ const updateTelegramAlert = async (raspberryListWithChanges: ReturnType<typeof u
       lastMessageContent.raspberryUnavailable.set(raspberryKey, raspberry)
       const raspberryAvailabilities = {
         nowAvailableRaspberry: lastMessageContent.raspberryAvailable,
-        nowUnavailableRaspberry: lastMessageContent.raspberryUnavailable
+        nowUnavailableRaspberry: lastMessageContent.raspberryUnavailable,
       }
       lastMessageContent.telegramMessage.text = getTelegramMessage(raspberryAvailabilities)
       await bot.editMessageText(lastMessageContent.telegramMessage.text, {
         chat_id: TELEGRAM_CHAT_ID,
         message_id: lastMessageContent.telegramMessage.message_id,
         parse_mode: 'Markdown',
-        disable_web_page_preview: true
+        disable_web_page_preview: true,
       })
     }
   }
@@ -426,7 +424,7 @@ const checkStock = async () => {
       getRaspberryList(),
       new Promise(resolve => setTimeout(() => resolve(getRaspberryList()), 1000)) as Promise<
         ReturnType<typeof getRaspberryList>
-      >
+      >,
     ]).catch(async e => {
       fetchErrors.push(new Date())
       if (hasReachedErrorsSkipThresold()) {
@@ -475,7 +473,7 @@ const checkStock = async () => {
     if (!USE_CACHED_REQUEST) {
       const apiData = {
         lastUpdate: new Date(),
-        _data: raspberryList
+        _data: raspberryList,
       }
       writeFileSync(new URL('../_cached_request_data.json', import.meta.url), JSON.stringify(apiData, null, 2))
     }
@@ -504,7 +502,7 @@ const checkStock = async () => {
 
     await bot.sendMessage(TELEGRAM_ADMIN_CHAT_ID, `❌ Error!\n\`\`\`${stack}\`\`\``, {
       parse_mode: 'Markdown',
-      disable_web_page_preview: true
+      disable_web_page_preview: true,
     })
   }
   debugRound++
@@ -528,7 +526,7 @@ const liveStockUpdate = async () => {
     .editMessageText(message, {
       chat_id: TELEGRAM_CHAT_ID,
       message_id: TELEGRAM_LIVE_STOCK_UPDATE_MESSAGE_ID,
-      parse_mode: 'Markdown'
+      parse_mode: 'Markdown',
     })
     .catch(() => {})
 }

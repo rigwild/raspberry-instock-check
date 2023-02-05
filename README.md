@@ -101,6 +101,7 @@ To simulate some alerts to see if it's working, set the environment variable `NO
 
 | Model (SKU)      | Description                            |
 | ---------------- | -------------------------------------- |
+| `CM3-Lite`       | RPi CM3 - 1GB RAM, No MMC              |
 | `CM3+16GB`       | RPi CM3+ - 1GB RAM, 16GB MMC           |
 | `CM3+32GB`       | RPi CM3+ - 1GB RAM, 32GB MMC           |
 | `CM3+8GB`        | RPi CM3+ - 1GB RAM, 8GB MMC            |
@@ -138,28 +139,45 @@ To simulate some alerts to see if it's working, set the environment variable `NO
 | `CM4108016`      | RPi CM4 - 8GB RAM, 16GB MMC, With Wifi |
 | `CM4108032`      | RPi CM4 - 8GB RAM, 32GB MMC, With Wifi |
 | `RPI3-MODAP`     | RPi 3 Model A+ - 512MB RAM             |
+| `RPI3-MODB`      | RPi 3 Model B - 1GB RAM                |
 | `RPI3-MODBP`     | RPi 3 Model B+ - 1GB RAM               |
 | `RPI4-MODBP-1GB` | RPi 4 Model B - 1GB RAM                |
 | `RPI4-MODBP-2GB` | RPi 4 Model B - 2GB RAM                |
 | `RPI4-MODBP-4GB` | RPi 4 Model B - 4GB RAM                |
 | `RPI4-MODBP-8GB` | RPi 4 Model B - 8GB RAM                |
+| `SC0020`         | Raspberry Pi Zero W                    |
+| `SC0020WH`       | Raspberry Pi Zero W (w/ headers)       |
 | `SC0510`         | Raspberry Pi Zero 2 W                  |
 | `SC0510WH`       | Raspberry Pi Zero 2 W (w/ headers)     |
 
 ## License
 
 ```
-           DO WHAT THE FUCK YOU WANT TO PUBLIC LICENSE
-                   Version 2, December 2004
+Copyright (c) rigwild
 
-Copyright (C) 2022 rigwild <me@rigwild.dev> (https://rigwild.dev/)
+This license is granted to everyone except for the following entities and
+any of their subsidiaries:
 
-Everyone is permitted to copy and distribute verbatim or modified
-copies of this license document, and changing it is allowed as long
-as the name is changed.
+- "rpilocator"
+- "camerahacks"
 
-           DO WHAT THE FUCK YOU WANT TO PUBLIC LICENSE
-  TERMS AND CONDITIONS FOR COPYING, DISTRIBUTION AND MODIFICATION
+MIT License
 
- 0. You just DO WHAT THE FUCK YOU WANT TO.
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 ```
