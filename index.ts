@@ -61,7 +61,7 @@ const hasReachedErrorsSkipThresold = () => {
   fetchErrors = fetchErrors.filter(x => x.getTime() > now - ERRORS_SKIP_TIME_WINDOW)
   return fetchErrors.length >= ERRORS_SKIP_THRESOLD
 }
-const ERRORS_SKIP_CYCLES = () => 4 + (Math.floor(Math.random() * 10) % 11) // 4 <= x <= 10
+const ERRORS_SKIP_CYCLES = () => 4 + (Math.floor(Math.random() * 10) % 11) // 4 <= x <= 13
 
 // Save the sent messages to udpate them when becomes unavailable
 type StockMessageContent = {
@@ -129,7 +129,8 @@ const getRpilocatorTokenAndCookies = async () => {
     headers: {
       accept:
         'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
-      'User-Agent': 'raspberry_alert telegram bot',
+      'User-Agent':
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36',
     },
     agent: PROXY ? new HttpsProxyAgent(PROXY) : undefined,
   })
@@ -166,7 +167,8 @@ const getRaspberryList = async (): Promise<Raspberry[]> => {
         headers: {
           accept: 'application/json, text/javascript, */*; q=0.01',
           'x-requested-with': 'XMLHttpRequest',
-          'User-Agent': 'raspberry_alert telegram bot',
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36',
           cookie: rpilocatorCookies,
           referer: 'https://rpilocator.com/',
         },
@@ -190,7 +192,7 @@ const getRaspberryList = async (): Promise<Raspberry[]> => {
   }
 
   if (!reqData.ok)
-    throw new Error(`Failed to fetch API data! - Status ${reqData.status}\n${(await reqData.text()).slice(0, 2000)}`)
+    throw new Error(`Failed to fetch API data! - Status ${reqData.status}\n${(await reqData.text()).slice(0, 4000)}`)
 
   let raspberryList: Raspberry[]
   let raspberryListJson = await reqData.text()
@@ -223,12 +225,14 @@ const updateRapsberryCache = (raspberryList: Raspberry[]) => {
       description: 'RPi 4 Model B - 4GB RAM',
       vendor: 'electro:kit (SE)',
       price: { display: '719.00', currency: 'SEK' },
+      link: 'https://www.pi-shop.ch/raspberry-pi-3-model-a',
     }
     const mock2 = {
       sku: 'CM4104000',
       description: 'RPi CM4 - 4GB RAM, No MMC, With Wifi',
       vendor: 'Welectron (DE)',
       price: { display: '64.90', currency: 'EUR' },
+      link: 'https://www.pi-shop.ch/raspberry-pi-3-model-a',
     }
     if (debugRound === 1) {
       raspberryList.push(mock1 as any)
@@ -422,7 +426,7 @@ const checkStock = async () => {
     // Sometimes rpilocator returns invalid data (race condition when updating on their side)
     const [raspberryList, raspberryListDoubleCheck] = await Promise.all([
       getRaspberryList(),
-      new Promise(resolve => setTimeout(() => resolve(getRaspberryList()), 1000)) as Promise<
+      new Promise(resolve => setTimeout(() => resolve(getRaspberryList()), 2000)) as Promise<
         ReturnType<typeof getRaspberryList>
       >,
     ]).catch(async e => {
@@ -498,7 +502,7 @@ const checkStock = async () => {
     console.error(error)
 
     let stack = error.stack?.slice(0, 2000)
-    if (error.message.includes('API data was not JSON!')) stack = 'API data was not JSON!'
+    if (error.message.includes('API data was not JSON!')) stack = 'API data was not JSON'
 
     await bot.sendMessage(TELEGRAM_ADMIN_CHAT_ID, `❌ Error!\n\`\`\`${stack}\`\`\``, {
       parse_mode: 'Markdown',

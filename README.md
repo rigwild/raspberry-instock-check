@@ -169,6 +169,7 @@ any of their subsidiaries:
 
 - "rpilocator"
 - "camerahacks"
+- "DPHacks"
 
 MIT License
 
