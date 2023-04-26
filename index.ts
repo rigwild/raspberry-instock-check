@@ -313,6 +313,16 @@ export const toHumanDateTime = (date: Date) =>
     date.getHours()
   )}:${twoDigits(date.getMinutes())}`
 
+/** Check if provided lists are identical, will deep copy and delete `update_t` key as it changes frequently */
+const areIdentical = (raspberryList: Raspberry[], raspberryListDoubleCheck: Raspberry[]): boolean => {
+  const a = JSON.parse(JSON.stringify(raspberryList))
+  const b = JSON.parse(JSON.stringify(raspberryListDoubleCheck))
+  a.forEach(r => delete r.update_t)
+  b.forEach(r => delete r.update_t)
+  writeFileSync('lol.json', JSON.stringify(a) + '\n\n' + JSON.stringify(b))
+  return JSON.stringify(a) === JSON.stringify(b)
+}
+
 const getTelegramMessage = (
   raspberryAvailabilities: ReturnType<typeof updateRapsberryCache>,
   nowAvailableRaspberryListLastStockMessagesKeys?: string[]
@@ -441,9 +451,6 @@ const checkStock = async () => {
       throw e
     })
 
-    const raspberryListJson = JSON.stringify(raspberryList)
-    const raspberryListDoubleCheckJson = JSON.stringify(raspberryListDoubleCheck)
-
     // Check both requests were succesful
     if ((raspberryList && !raspberryListDoubleCheck) || (!raspberryList && raspberryListDoubleCheck)) {
       console.error('One of the double check requests failed')
@@ -454,18 +461,20 @@ const checkStock = async () => {
     if (!raspberryList && !raspberryListDoubleCheck) {
       const timestamp = Date.now()
       const url = new URL(`invalid-both-requests-failed-${timestamp}.json`, import.meta.url)
+
+      const raspberryListJson = JSON.stringify(raspberryList)
       writeFileSync(url, raspberryListJson)
       throw new Error(`Failed double check, both requests failed - Content:\n${raspberryListJson.slice(0, 1000)}`)
     }
 
     // Check both requests are indeed identical
-    if (raspberryListJson !== raspberryListDoubleCheckJson) {
+    if (!areIdentical(raspberryList, raspberryListDoubleCheck)) {
       const timestamp = Date.now()
       if (process.env.NODE_ENV === 'development') {
         const url1 = new URL(`invalid-double-check-${timestamp}-1.json`, import.meta.url)
         const url2 = new URL(`invalid-double-check-${timestamp}-2.json`, import.meta.url)
-        writeFileSync(url1, raspberryListJson)
-        writeFileSync(url2, raspberryListDoubleCheckJson)
+        writeFileSync(url1, JSON.stringify(raspberryList, null, 2))
+        writeFileSync(url2, JSON.stringify(raspberryListDoubleCheck, null, 2))
       }
       console.error('Detected invalid data when double checking')
       return
