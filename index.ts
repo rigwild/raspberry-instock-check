@@ -75,6 +75,7 @@ const lastStockMessagesContent = new Map<number, StockMessageContent>()
 const vendors = {
   '330ohms (MX)': '330ohms',
   'Adafruit (US)': 'adafruit',
+  'Argon 40 (CN)': 'argon40',
   'BerryBase (DE)': 'berrybase',
   'Botland (PL)': 'botland',
   'Chicago Elec. Dist. (US)': 'chicagodist',
@@ -83,6 +84,7 @@ const vendors = {
   'electro:kit (SE)': 'electrokit',
   'Elektor (NL)': 'elektor',
   'Farnell (UK)': 'farnell',
+  'Jkollerup.dk (DK)': 'jkollerup',
   'Kamami (PL)': 'kamami',
   'Kubii (FR)': 'kubii',
   'MC Hobby (BE)': 'mchobby',
@@ -106,6 +108,7 @@ const vendors = {
   'The Pi Hut (UK)': 'thepihut',
   'Tiendatec (ES)': 'tiendatec',
   'Welectron (DE)': 'welectron',
+  'Yadom (FR)': 'yadom',
 }
 
 let debugRound = 0
