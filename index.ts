@@ -37,9 +37,9 @@ if (
   process.env.NODE_ENV !== 'test' &&
   process.env.NODE_ENV !== 'development' &&
   !USE_CACHED_REQUEST &&
-  CHECK_INTERVAL < 15_000
+  CHECK_INTERVAL < 25_000
 )
-  throw new Error('CHECK_INTERVAL must be at least 15000 ms')
+  throw new Error('CHECK_INTERVAL must be at least 25000 ms')
 
 let isFirstInit = true
 let rpilocatorToken: string
@@ -187,12 +187,12 @@ const getRaspberryList = async (): Promise<Raspberry[]> => {
     throw error
   }
 
-  if (reqData.status === 403) {
-    // Try to get a new token and retry in 3s
-    await new Promise(resolve => setTimeout(resolve, 3000))
-    await getRpilocatorTokenAndCookies()
-    return getRaspberryList()
-  }
+  // if (reqData.status === 403) {
+  //   // Try to get a new token and retry in 10s
+  //   await new Promise(resolve => setTimeout(resolve, 3000))
+  //   await getRpilocatorTokenAndCookies()
+  //   return getRaspberryList()
+  // }
 
   if (!reqData.ok)
     throw new Error(`Failed to fetch API data! - Status ${reqData.status}\n${(await reqData.text()).slice(0, 4000)}`)
@@ -201,7 +201,9 @@ const getRaspberryList = async (): Promise<Raspberry[]> => {
   let raspberryListJson = await reqData.text()
   try {
     // writeFileSync(new URL(`log-${Date.now()}.html`, import.meta.url), raspberryListJson)
-    raspberryList = JSON.parse(raspberryListJson).data
+    raspberryList = JSON.parse(raspberryListJson).data.sort((a, b) =>
+      getRaspberryKey(a).localeCompare(getRaspberryKey(b))
+    )
   } catch (error) {
     if (process.env.NODE_ENV === 'development') {
       console.log(reqData.status, reqData.statusText)
@@ -322,7 +324,6 @@ const areIdentical = (raspberryList: Raspberry[], raspberryListDoubleCheck: Rasp
   const b = JSON.parse(JSON.stringify(raspberryListDoubleCheck))
   a.forEach(r => delete r.update_t)
   b.forEach(r => delete r.update_t)
-  writeFileSync('lol.json', JSON.stringify(a) + '\n\n' + JSON.stringify(b))
   return JSON.stringify(a) === JSON.stringify(b)
 }
 
