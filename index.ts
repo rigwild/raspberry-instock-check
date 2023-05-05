@@ -128,12 +128,22 @@ bot.sendMessage(
 
 const getRpilocatorTokenAndCookies = async () => {
   console.log('Getting new rpilocator token and cookies')
+
   const reqHome = await fetch('https://rpilocator.com/', {
     headers: {
-      accept:
-        'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
-      'User-Agent':
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36',
+      accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+      'accept-language': 'en-US,en;q=0.5',
+      'cache-control': 'no-cache',
+      pragma: 'no-cache',
+      'sec-ch-ua': '"Brave";v="113", "Chromium";v="113", "Not-A.Brand";v="24"',
+      'sec-ch-ua-mobile': '?0',
+      'sec-ch-ua-platform': '"Windows"',
+      'sec-fetch-dest': 'document',
+      'sec-fetch-mode': 'navigate',
+      'sec-fetch-site': 'same-origin',
+      'sec-fetch-user': '?1',
+      'sec-gpc': '1',
+      'upgrade-insecure-requests': '1',
     },
     agent: PROXY ? new HttpsProxyAgent(PROXY) : undefined,
   })
@@ -143,6 +153,8 @@ const getRpilocatorTokenAndCookies = async () => {
   rpilocatorToken = extractedToken
   // prettier-ignore
   rpilocatorCookies = reqHome.headers.raw()['set-cookie'].map(x => x.split(';')[0]).join('; ')
+  console.log('rpilocatorToken', rpilocatorToken)
+  console.log('rpilocatorCookies', rpilocatorCookies)
 }
 
 const getRaspberryList = async (): Promise<Raspberry[]> => {
@@ -169,9 +181,17 @@ const getRaspberryList = async (): Promise<Raspberry[]> => {
       {
         headers: {
           accept: 'application/json, text/javascript, */*; q=0.01',
+          'accept-language': 'en-US,en;q=0.5',
+          'cache-control': 'no-cache',
+          pragma: 'no-cache',
+          'sec-ch-ua': '"Brave";v="113", "Chromium";v="113", "Not-A.Brand";v="24"',
+          'sec-ch-ua-mobile': '?0',
+          'sec-ch-ua-platform': '"Windows"',
+          'sec-fetch-dest': 'empty',
+          'sec-fetch-mode': 'cors',
+          'sec-fetch-site': 'same-origin',
+          'sec-gpc': '1',
           'x-requested-with': 'XMLHttpRequest',
-          'User-Agent':
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36',
           cookie: rpilocatorCookies,
           referer: 'https://rpilocator.com/',
         },
@@ -548,9 +568,11 @@ const liveStockUpdate = async () => {
     .catch(() => {})
 }
 
-checkStock().finally(() => {
-  liveStockUpdate()
-  setInterval(checkStock, CHECK_INTERVAL + Math.random() * 3000)
-  setInterval(liveStockUpdate, process.env.NODE_ENV === 'test' ? 2000 : 10_000)
-  if (API_RUN) startServer()
-})
+getRpilocatorTokenAndCookies()
+  .then(checkStock)
+  .finally(() => {
+    liveStockUpdate()
+    setInterval(checkStock, CHECK_INTERVAL + Math.random() * 3000)
+    setInterval(liveStockUpdate, process.env.NODE_ENV === 'test' ? 2000 : 20_000)
+    if (API_RUN) startServer()
+  })
