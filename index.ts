@@ -33,6 +33,22 @@ type Raspberry = {
   description: string
 }
 
+const USER_AGENTS = [
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/111.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/112.0',
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/111.0',
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/111.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/112.0',
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.4 Safari/605.1.15',
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:109.0) Gecko/20100101 Firefox/112.0',
+  'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/111.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/111.0.0.0 Safari/537.36 OPR/97.0.0.0',
+  'Mozilla/5.0 (Windows NT 10.0; rv:112.0) Gecko/20100101 Firefox/112.0',
+]
+
 if (
   process.env.NODE_ENV !== 'test' &&
   process.env.NODE_ENV !== 'development' &&
@@ -41,10 +57,16 @@ if (
 )
   throw new Error('CHECK_INTERVAL must be at least 25000 ms')
 
+const pickRandom = (arr: any[]) => arr[Math.floor(Math.random() * arr.length)]
+
 let isFirstInit = true
 let rpilocatorToken: string
 let rpilocatorCookies: string
+let currentUserAgent: string
 const raspberryAvailableCache = new Map<string, Raspberry>()
+
+let lastCookiesRefresh = Date.now()
+const COOKIES_REFRESH_INTERVAL = 5 * 60 * 1000 // 5 minutes
 
 /**
  * List of errors when fetching data from rpilocator
@@ -129,32 +151,40 @@ bot.sendMessage(
 const getRpilocatorTokenAndCookies = async () => {
   console.log('Getting new rpilocator token and cookies')
 
+  currentUserAgent = pickRandom(USER_AGENTS)
+  rpilocatorToken = ''
+  rpilocatorCookies = ''
+
   const reqHome = await fetch('https://rpilocator.com/', {
     headers: {
-      accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-      'accept-language': 'en-US,en;q=0.5',
-      'cache-control': 'no-cache',
-      pragma: 'no-cache',
-      'sec-ch-ua': '"Brave";v="113", "Chromium";v="113", "Not-A.Brand";v="24"',
-      'sec-ch-ua-mobile': '?0',
-      'sec-ch-ua-platform': '"Windows"',
-      'sec-fetch-dest': 'document',
-      'sec-fetch-mode': 'navigate',
-      'sec-fetch-site': 'same-origin',
-      'sec-fetch-user': '?1',
-      'sec-gpc': '1',
-      'upgrade-insecure-requests': '1',
+      'User-Agent': currentUserAgent,
+      Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+      'Accept-Language': 'en-US,en;q=0.5',
+      'Upgrade-Insecure-Requests': '1',
+      'Sec-Fetch-Dest': 'document',
+      'Sec-Fetch-Mode': 'navigate',
+      'Sec-Fetch-Site': 'none',
+      'Sec-Fetch-User': '?1',
     },
     agent: PROXY ? new HttpsProxyAgent(PROXY) : undefined,
   })
+
   const homeHTML = await reqHome.text()
   const extractedToken = homeHTML.match(/localToken="(.*?)"/)?.[1]
-  if (!extractedToken) throw new Error('API token not found!')
+  if (!extractedToken) {
+    writeFileSync(new URL(`log-api-token-not-found-${Date.now()}.html`, import.meta.url), homeHTML)
+    writeFileSync(
+      new URL(`log-api-token-not-found-${Date.now()}2.html`, import.meta.url),
+      JSON.stringify(reqHome.headers.raw(), null, 2)
+    )
+    throw new Error('API token not found!')
+  }
   rpilocatorToken = extractedToken
   // prettier-ignore
   rpilocatorCookies = reqHome.headers.raw()['set-cookie'].map(x => x.split(';')[0]).join('; ')
   console.log('rpilocatorToken', rpilocatorToken)
   console.log('rpilocatorCookies', rpilocatorCookies)
+  console.log('currentUserAgent', currentUserAgent)
 }
 
 const getRaspberryList = async (): Promise<Raspberry[]> => {
@@ -171,7 +201,11 @@ const getRaspberryList = async (): Promise<Raspberry[]> => {
     return JSON.parse(readFileSync(filePath, { encoding: 'utf-8' }))._data
   }
 
-  if (!rpilocatorToken) await getRpilocatorTokenAndCookies()
+  // Refresh cookies
+  if (!rpilocatorToken || Date.now() - lastCookiesRefresh > COOKIES_REFRESH_INTERVAL) {
+    await getRpilocatorTokenAndCookies()
+    lastCookiesRefresh = Date.now()
+  }
 
   // Fetch stock data
   let reqData: Awaited<ReturnType<typeof fetch>>
@@ -180,18 +214,14 @@ const getRaspberryList = async (): Promise<Raspberry[]> => {
       `https://rpilocator.com/data.cfm?method=getProductTable&instock&token=${rpilocatorToken}&&_=${Date.now()}`,
       {
         headers: {
-          accept: 'application/json, text/javascript, */*; q=0.01',
-          'accept-language': 'en-US,en;q=0.5',
-          'cache-control': 'no-cache',
-          pragma: 'no-cache',
-          'sec-ch-ua': '"Brave";v="113", "Chromium";v="113", "Not-A.Brand";v="24"',
-          'sec-ch-ua-mobile': '?0',
-          'sec-ch-ua-platform': '"Windows"',
-          'sec-fetch-dest': 'empty',
-          'sec-fetch-mode': 'cors',
-          'sec-fetch-site': 'same-origin',
-          'sec-gpc': '1',
-          'x-requested-with': 'XMLHttpRequest',
+          'User-Agent': currentUserAgent,
+          Accept: 'application/json, text/javascript, */*; q=0.01',
+          'Accept-Language': 'en-US,en;q=0.5',
+          'X-Requested-With': 'XMLHttpRequest',
+          'Alt-Used': 'rpilocator.com',
+          'Sec-Fetch-Dest': 'empty',
+          'Sec-Fetch-Mode': 'cors',
+          'Sec-Fetch-Site': 'same-origin',
           cookie: rpilocatorCookies,
           referer: 'https://rpilocator.com/',
         },
@@ -460,7 +490,7 @@ const checkStock = async () => {
     // Sometimes rpilocator returns invalid data (race condition when updating on their side)
     const [raspberryList, raspberryListDoubleCheck] = await Promise.all([
       getRaspberryList(),
-      new Promise(resolve => setTimeout(() => resolve(getRaspberryList()), 2000)) as Promise<
+      new Promise(resolve => setTimeout(() => resolve(getRaspberryList()), 5000)) as Promise<
         ReturnType<typeof getRaspberryList>
       >,
     ]).catch(async e => {
@@ -568,7 +598,7 @@ const liveStockUpdate = async () => {
     .catch(() => {})
 }
 
-getRpilocatorTokenAndCookies()
+;(process.env.NODE_ENV === 'test' || USE_CACHED_REQUEST ? Promise.resolve() : getRpilocatorTokenAndCookies())
   .then(checkStock)
   .finally(() => {
     liveStockUpdate()
