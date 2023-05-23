@@ -66,7 +66,7 @@ let currentUserAgent: string
 const raspberryAvailableCache = new Map<string, Raspberry>()
 
 let lastCookiesRefresh = Date.now()
-const COOKIES_REFRESH_INTERVAL = 5 * 60 * 1000 // 5 minutes
+const COOKIES_REFRESH_INTERVAL = 3 * 60 * 1000 // 3 minutes
 
 /**
  * List of errors when fetching data from rpilocator
@@ -108,7 +108,6 @@ const vendors = {
   'Farnell (UK)': 'farnell',
   'Jkollerup.dk (DK)': 'jkollerup',
   'Kamami (PL)': 'kamami',
-  'Kubii (FR)': 'kubii',
   'MC Hobby (BE)': 'mchobby',
   'Melopero (IT)': 'melopero',
   'Newark (US)': 'newark',
@@ -126,7 +125,6 @@ const vendors = {
   'Robert Mauser (PT)': 'mauserpt',
   'Seeedstudio (CN)': 'seeedstudio',
   'Semaf (AT)': 'semaf',
-  'Sparkfun (US)': 'sparkfun',
   'The Pi Hut (UK)': 'thepihut',
   'Tiendatec (ES)': 'tiendatec',
   'Welectron (DE)': 'welectron',
