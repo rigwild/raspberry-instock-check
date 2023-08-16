@@ -60,7 +60,6 @@ if (
 const pickRandom = (arr: any[]) => arr[Math.floor(Math.random() * arr.length)]
 
 let isFirstInit = true
-let rpilocatorToken: string
 let rpilocatorCookies: string
 let currentUserAgent: string
 const raspberryAvailableCache = new Map<string, Raspberry>()
@@ -150,7 +149,6 @@ const getRpilocatorTokenAndCookies = async () => {
   console.log('Getting new rpilocator token and cookies')
 
   currentUserAgent = pickRandom(USER_AGENTS)
-  rpilocatorToken = ''
   rpilocatorCookies = ''
 
   const reqHome = await fetch('https://rpilocator.com/', {
@@ -167,20 +165,8 @@ const getRpilocatorTokenAndCookies = async () => {
     agent: PROXY ? new HttpsProxyAgent(PROXY) : undefined,
   })
 
-  const homeHTML = await reqHome.text()
-  const extractedToken = homeHTML.match(/localToken="(.*?)"/)?.[1]
-  if (!extractedToken) {
-    writeFileSync(new URL(`log-api-token-not-found-${Date.now()}.html`, import.meta.url), homeHTML)
-    writeFileSync(
-      new URL(`log-api-token-not-found-${Date.now()}2.html`, import.meta.url),
-      JSON.stringify(reqHome.headers.raw(), null, 2)
-    )
-    throw new Error('API token not found!')
-  }
-  rpilocatorToken = extractedToken
   // prettier-ignore
   rpilocatorCookies = reqHome.headers.raw()['set-cookie'].map(x => x.split(';')[0]).join('; ')
-  console.log('rpilocatorToken', rpilocatorToken)
   console.log('rpilocatorCookies', rpilocatorCookies)
   console.log('currentUserAgent', currentUserAgent)
 }
@@ -200,7 +186,7 @@ const getRaspberryList = async (): Promise<Raspberry[]> => {
   }
 
   // Refresh cookies
-  if (!rpilocatorToken || Date.now() - lastCookiesRefresh > COOKIES_REFRESH_INTERVAL) {
+  if (!rpilocatorCookies || Date.now() - lastCookiesRefresh > COOKIES_REFRESH_INTERVAL) {
     await getRpilocatorTokenAndCookies()
     lastCookiesRefresh = Date.now()
   }
@@ -208,24 +194,21 @@ const getRaspberryList = async (): Promise<Raspberry[]> => {
   // Fetch stock data
   let reqData: Awaited<ReturnType<typeof fetch>>
   try {
-    reqData = await fetch(
-      `https://rpilocator.com/data.cfm?method=getProductTable&instock&token=${rpilocatorToken}&&_=${Date.now()}`,
-      {
-        headers: {
-          'User-Agent': currentUserAgent,
-          Accept: 'application/json, text/javascript, */*; q=0.01',
-          'Accept-Language': 'en-US,en;q=0.5',
-          'X-Requested-With': 'XMLHttpRequest',
-          'Alt-Used': 'rpilocator.com',
-          'Sec-Fetch-Dest': 'empty',
-          'Sec-Fetch-Mode': 'cors',
-          'Sec-Fetch-Site': 'same-origin',
-          cookie: rpilocatorCookies,
-          referer: 'https://rpilocator.com/',
-        },
-        agent: PROXY ? new HttpsProxyAgent(PROXY) : undefined,
-      }
-    )
+    reqData = await fetch(`https://rpilocator.com/data.cfm?method=getProductTable&instock&&_=${Date.now()}`, {
+      headers: {
+        'User-Agent': currentUserAgent,
+        Accept: 'application/json, text/javascript, */*; q=0.01',
+        'Accept-Language': 'en-US,en;q=0.5',
+        'X-Requested-With': 'XMLHttpRequest',
+        'Alt-Used': 'rpilocator.com',
+        'Sec-Fetch-Dest': 'empty',
+        'Sec-Fetch-Mode': 'cors',
+        'Sec-Fetch-Site': 'same-origin',
+        cookie: rpilocatorCookies,
+        referer: 'https://rpilocator.com/',
+      },
+      agent: PROXY ? new HttpsProxyAgent(PROXY) : undefined,
+    })
   } catch (error) {
     // If DNS error, log error but do not alert telegram admin
     if (error.message.includes('getaddrinfo EAI_AGAIN')) {
@@ -256,7 +239,6 @@ const getRaspberryList = async (): Promise<Raspberry[]> => {
     if (process.env.NODE_ENV === 'development') {
       console.log(reqData.status, reqData.statusText)
       console.log(rpilocatorCookies)
-      console.log(rpilocatorToken)
       writeFileSync(new URL(`log-${Date.now()}.html`, import.meta.url), raspberryListJson)
     }
     throw new Error(`API data was not JSON!\n${raspberryListJson.slice(0, 2000)}`)
