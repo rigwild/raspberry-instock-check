@@ -474,7 +474,7 @@ const checkStock = async () => {
 
     // Do the request 2 times with a bit of delay and check the result is the same
     // Sometimes rpilocator returns invalid data (race condition when updating on their side)
-    const [raspberryList, raspberryListDoubleCheck] = await Promise.all([
+    let [raspberryList, raspberryListDoubleCheck] = await Promise.all([
       getRaspberryList(),
       new Promise(resolve => setTimeout(() => resolve(getRaspberryList()), 5000)) as Promise<
         ReturnType<typeof getRaspberryList>
@@ -519,6 +519,10 @@ const checkStock = async () => {
       console.error('Detected invalid data when double checking')
       return
     }
+
+    // Blacklist some vendors because they change their stock or price too often
+    const blacklistedVendors = ['samm']
+    raspberryList = raspberryList.filter(r => !blacklistedVendors.includes(r.vendor))
 
     const raspberryListWithChanges = updateRapsberryCache(raspberryList)
 
