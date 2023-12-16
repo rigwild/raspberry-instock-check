@@ -562,6 +562,7 @@ const liveStockUpdate = async () => {
 
   const available = [...new Set([...raspberryAvailableCache.values()])]
     .filter(x => x.avail === 'Yes')
+    .slice(0, 50) // Telegram message is too long if too many
     .map(r => `✅ ${getRaspberryLink(r)}`)
   message += available.length > 0 ? available.join('\n') : '🤷‍♀️ Nothing available right now'
 
@@ -575,7 +576,16 @@ const liveStockUpdate = async () => {
       message_id: TELEGRAM_LIVE_STOCK_UPDATE_MESSAGE_ID,
       parse_mode: 'Markdown',
     })
-    .catch(() => {})
+    .catch(error => {
+      if (
+        error.message.includes(
+          'specified new message content and reply markup are exactly the same as a current content and reply markup of the message'
+        )
+      ) {
+        return
+      }
+      console.error(error)
+    })
 }
 
 ;(process.env.NODE_ENV === 'test' || USE_CACHED_REQUEST ? Promise.resolve() : getRpilocatorTokenAndCookies())
