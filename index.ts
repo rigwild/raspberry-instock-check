@@ -521,7 +521,7 @@ const checkStock = async () => {
     }
 
     // Blacklist some vendors because they change their stock or price too often
-    const blacklistedVendors = ['samm']
+    const blacklistedVendors = ['samm', 'jkollerup']
     raspberryList = raspberryList.filter(r => !blacklistedVendors.includes(r.vendor))
 
     const raspberryListWithChanges = updateRapsberryCache(raspberryList)
